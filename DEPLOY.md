@@ -9,13 +9,15 @@ back-and-forth.
 
 1. Create a project at supabase.com (or via the Supabase connector in this
    chat, if you connect it).
-2. In the SQL editor, run `supabase/migrations/0001_phase1_core_universe.sql`.
-   This creates `stars`, `constellations`, `tasks`, `app_settings`, and
-   turns on row-level security scoped to `auth.uid()`.
-3. In Authentication → Providers, Email is enabled by default — that's all
-   this app uses (magic link, no password). In Authentication → URL
-   Configuration, add your Vercel URL (and `http://localhost:5173` for
-   local dev) to Redirect URLs, or the magic link will bounce.
+2. In the SQL editor, run the migrations in `supabase/migrations/` in
+   order (`0001` through `0005`). This creates all tables and turns on
+   row-level security scoped to `auth.uid()`.
+3. Email/password auth (Authentication → Providers → Email) is on by
+   default — no extra config needed for password sign-in. You can create
+   your first user right in Authentication → Users → Add user (check
+   "Auto Confirm User" so it's usable immediately, no confirmation email).
+   If you'd rather let people sign up from the app itself, that works
+   too — see the note on email confirmation below.
 4. Copy Project URL and anon public key from Settings → API.
 
 ## 2. GitHub
@@ -39,8 +41,25 @@ just adds a remote and pushes it.)
    - `VITE_SUPABASE_ANON_KEY`
 3. Deploy. Without those two variables the app still deploys and runs — it
    just falls back to local-only mode (see below).
-4. Once deployed, add the Vercel URL to Supabase's redirect URLs (step 1.3
-   above) — magic links won't work until you do.
+
+Nothing else to configure — email/password auth doesn't depend on the
+deployed URL the way magic links did.
+
+## A note on email confirmation
+
+By default, a fresh Supabase project requires confirming a new sign-up's
+email before it can sign in. Two ways to avoid the confirmation-email
+rate limits and redirect issues that come with Supabase's free-tier email
+sending:
+
+- **Create users yourself** in the dashboard (Authentication → Users →
+  Add user, with "Auto Confirm User" checked) — no email sent at all,
+  works immediately. Good for a personal app with a small, known set of
+  users.
+- **Turn off "Confirm email"** (Authentication → Providers → Email) if
+  you want the in-app "Sign up" form to work for anyone without an email
+  round-trip. Fine for a personal project; reconsider before opening
+  sign-ups to the public.
 
 ## Local-only mode
 

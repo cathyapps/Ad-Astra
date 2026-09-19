@@ -20,12 +20,17 @@ export function AuthGate({ children }: Props) {
   return <SupabaseAuthGate>{children}</SupabaseAuthGate>
 }
 
+type FormMode = 'sign_in' | 'sign_up'
+
 function SupabaseAuthGate({ children }: Props) {
   const client = supabase!
   const [state, setState] = useState<'checking' | 'signed_out' | 'signed_in'>('checking')
   const [authState, setAuthState] = useState<AuthState | null>(null)
+  const [formMode, setFormMode] = useState<FormMode>('sign_in')
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [signUpConfirmSent, setSignUpConfirmSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -59,15 +64,26 @@ function SupabaseAuthGate({ children }: Props) {
     }
   }, [client])
 
-  async function sendMagicLink(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    const { error } = await client.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    })
-    if (error) setError(error.message)
-    else setSent(true)
+    setSubmitting(true)
+
+    if (formMode === 'sign_in') {
+      const { error } = await client.auth.signInWithPassword({ email, password })
+      if (error) setError(error.message)
+      // On success, onAuthStateChange above flips state to 'signed_in'.
+    } else {
+      const { data, error } = await client.auth.signUp({ email, password })
+      if (error) {
+        setError(error.message)
+      } else if (!data.session) {
+        // Email confirmation is turned on for this project — no session yet.
+        setSignUpConfirmSent(true)
+      }
+    }
+
+    setSubmitting(false)
   }
 
   if (state === 'checking') {
@@ -87,12 +103,13 @@ function SupabaseAuthGate({ children }: Props) {
             <h1 className="font-display text-xl text-moon">Ad Astra</h1>
           </div>
 
-          {sent ? (
+          {signUpConfirmSent ? (
             <p className="text-sm text-moon-dim text-center">
-              Check <span className="text-moon">{email}</span> for a sign-in link.
+              Check <span className="text-moon">{email}</span> to confirm your account, then sign in
+              below.
             </p>
           ) : (
-            <form className="space-y-3" onSubmit={sendMagicLink}>
+            <form className="space-y-3" onSubmit={handleSubmit}>
               <input
                 type="email"
                 required
@@ -102,13 +119,35 @@ function SupabaseAuthGate({ children }: Props) {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-hairline bg-night rounded-lg px-3 py-2.5 text-sm text-moon placeholder:text-moon-dim/60"
               />
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border border-hairline bg-night rounded-lg px-3 py-2.5 text-sm text-moon placeholder:text-moon-dim/60"
+              />
               <button
                 type="submit"
-                className="w-full rounded-lg px-3 py-2.5 text-sm bg-gold text-night font-medium"
+                disabled={submitting}
+                className="w-full rounded-lg px-3 py-2.5 text-sm bg-gold text-night font-medium disabled:opacity-50"
               >
-                Send sign-in link
+                {formMode === 'sign_in' ? 'Sign in' : 'Create account'}
               </button>
               {error && <p className="text-xs text-red-400">{error}</p>}
+              <button
+                type="button"
+                className="w-full text-xs text-moon-dim hover:text-moon transition-colors"
+                onClick={() => {
+                  setFormMode((m) => (m === 'sign_in' ? 'sign_up' : 'sign_in'))
+                  setError(null)
+                }}
+              >
+                {formMode === 'sign_in'
+                  ? "Need an account? Sign up"
+                  : 'Already have an account? Sign in'}
+              </button>
             </form>
           )}
         </div>
