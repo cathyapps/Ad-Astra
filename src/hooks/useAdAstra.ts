@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { db } from '@/lib/db'
 import { checkCapacity, resolveCapacityChoice, type CapacityChoice } from '@/lib/currentOrbit'
 import { planTransition } from '@/lib/starLifecycle'
-import { tripStatusToStarStage, bookStatusToStarStage, watchStatusToStarStage } from '@/lib/autoStars'
+import {
+  tripStatusToStarStage,
+  bookStatusToStarStage,
+  watchStatusToStarStage,
+  learningStatusToStarStage,
+} from '@/lib/autoStars'
 import type { AppSettings, Constellation, Star, StarStage, Task } from '@/types'
 import type { Trip, TripItem } from '@/types/travel'
 import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
@@ -14,6 +19,7 @@ import type {
   WatchList,
   WatchListItem,
 } from '@/types/watching'
+import type { LearningGoal, LearningItem } from '@/types/learning'
 
 export interface PendingCapacityPrompt {
   message: string
@@ -77,6 +83,8 @@ export function useAdAstra() {
   const [watchListItems, setWatchListItems] = useState<WatchListItem[]>([])
   const [viewingSessions, setViewingSessions] = useState<ViewingSession[]>([])
   const [watchChallenges, setWatchChallenges] = useState<WatchChallenge[]>([])
+  const [learningGoals, setLearningGoals] = useState<LearningGoal[]>([])
+  const [learningItems, setLearningItems] = useState<LearningItem[]>([])
   const [loading, setLoading] = useState(true)
   const [capacityPrompt, setCapacityPrompt] = useState<PendingCapacityPrompt | null>(null)
 
@@ -99,6 +107,8 @@ export function useAdAstra() {
       wListItems,
       vSessions,
       wChallenges,
+      lGoals,
+      lItems,
     ] = await Promise.all([
       db.listStars(),
       db.listConstellations(),
@@ -117,6 +127,8 @@ export function useAdAstra() {
       db.listWatchListItems(),
       db.listViewingSessions(),
       db.listWatchChallenges(),
+      db.listLearningGoals(),
+      db.listLearningItems(),
     ])
     setStars(s)
     setConstellations(c)
@@ -135,6 +147,8 @@ export function useAdAstra() {
     setWatchListItems(wListItems)
     setViewingSessions(vSessions)
     setWatchChallenges(wChallenges)
+    setLearningGoals(lGoals)
+    setLearningItems(lItems)
     setLoading(false)
   }, [])
 
@@ -590,6 +604,78 @@ export function useAdAstra() {
     [reload],
   )
 
+  // --- Phase 4: Learning (Goal -> Planets -> Moons) ---
+
+  const createLearningGoal = useCallback(
+    async (input: Partial<LearningGoal> & { name: string }) => {
+      const goal = await db.createLearningGoal(input)
+      const linkedStarId = await syncLinkedStar({
+        linkedStarId: goal.linkedStarId,
+        desiredStage: learningStatusToStarStage(goal.status),
+        name: goal.name,
+        category: 'learning',
+      })
+      if (linkedStarId !== goal.linkedStarId) {
+        await db.updateLearningGoal(goal.id, { linkedStarId })
+      }
+      await reload()
+      return goal
+    },
+    [reload],
+  )
+
+  const updateLearningGoal = useCallback(
+    async (id: string, patch: Partial<LearningGoal>) => {
+      const goal = await db.updateLearningGoal(id, patch)
+      if (patch.status !== undefined || patch.name !== undefined) {
+        const linkedStarId = await syncLinkedStar({
+          linkedStarId: goal.linkedStarId,
+          desiredStage: learningStatusToStarStage(goal.status),
+          name: goal.name,
+          category: 'learning',
+        })
+        if (linkedStarId !== goal.linkedStarId) {
+          await db.updateLearningGoal(goal.id, { linkedStarId })
+        }
+      }
+      await reload()
+    },
+    [reload],
+  )
+
+  const deleteLearningGoal = useCallback(
+    async (id: string) => {
+      await db.deleteLearningGoal(id)
+      await reload()
+    },
+    [reload],
+  )
+
+  const createLearningItem = useCallback(
+    async (input: Partial<LearningItem> & { goalId: string; name: string }) => {
+      const item = await db.createLearningItem(input)
+      await reload()
+      return item
+    },
+    [reload],
+  )
+
+  const updateLearningItem = useCallback(
+    async (id: string, patch: Partial<LearningItem>) => {
+      await db.updateLearningItem(id, patch)
+      await reload()
+    },
+    [reload],
+  )
+
+  const deleteLearningItem = useCallback(
+    async (id: string) => {
+      await db.deleteLearningItem(id)
+      await reload()
+    },
+    [reload],
+  )
+
   return {
     loading,
     stars,
@@ -609,6 +695,8 @@ export function useAdAstra() {
     watchListItems,
     viewingSessions,
     watchChallenges,
+    learningGoals,
+    learningItems,
     capacityPrompt,
     reload,
     moveStar,
@@ -649,5 +737,11 @@ export function useAdAstra() {
     deleteViewingSession,
     createWatchChallenge,
     deleteWatchChallenge,
+    createLearningGoal,
+    updateLearningGoal,
+    deleteLearningGoal,
+    createLearningItem,
+    updateLearningItem,
+    deleteLearningItem,
   }
 }

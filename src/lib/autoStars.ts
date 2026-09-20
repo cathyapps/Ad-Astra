@@ -6,6 +6,7 @@ import type { StarStage } from '@/types'
 import type { TripStatus } from '@/types/travel'
 import type { BookStatus } from '@/types/reading'
 import type { WatchStatus } from '@/types/watching'
+import type { LearningStatus } from '@/types/learning'
 
 export function tripStatusToStarStage(status: TripStatus): StarStage | null {
   switch (status) {
@@ -42,6 +43,17 @@ export function watchStatusToStarStage(status: WatchStatus): StarStage | null {
       return 'current_orbit'
     case 'watched':
     case 'dnf':
+      return 'completed'
+  }
+}
+
+export function learningStatusToStarStage(status: LearningStatus): StarStage | null {
+  switch (status) {
+    case 'planned':
+      return null
+    case 'in_progress':
+      return 'current_orbit'
+    case 'completed':
       return 'completed'
   }
 }

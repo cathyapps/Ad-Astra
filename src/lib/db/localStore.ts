@@ -10,6 +10,7 @@ import type {
   WatchList,
   WatchListItem,
 } from '@/types/watching'
+import type { LearningGoal, LearningItem } from '@/types/learning'
 import type { AdAstraStore } from './types'
 
 const KEYS = {
@@ -30,6 +31,8 @@ const KEYS = {
   watchListItems: 'ad_astra_watch_list_items',
   viewingSessions: 'ad_astra_viewing_sessions',
   watchChallenges: 'ad_astra_watch_challenges',
+  learningGoals: 'ad_astra_learning_goals',
+  learningItems: 'ad_astra_learning_items',
 }
 
 function read<T>(key: string, fallback: T): T {
@@ -791,6 +794,94 @@ export class LocalStore implements AdAstraStore {
     write(
       KEYS.watchChallenges,
       (await this.listWatchChallenges()).filter((c) => c.id !== id),
+    )
+  }
+
+  // --- Phase 4: Learning (Goal -> Planets -> Moons; no metrics) ---
+
+  async listLearningGoals(): Promise<LearningGoal[]> {
+    return read<LearningGoal[]>(KEYS.learningGoals, [])
+  }
+
+  async getLearningGoal(id: string): Promise<LearningGoal | undefined> {
+    return (await this.listLearningGoals()).find((g) => g.id === id)
+  }
+
+  async createLearningGoal(input: Partial<LearningGoal> & { name: string }): Promise<LearningGoal> {
+    const goals = await this.listLearningGoals()
+    const goal: LearningGoal = {
+      id: uuid(),
+      name: input.name,
+      description: input.description,
+      status: input.status ?? 'planned',
+      notes: input.notes,
+      relatedStarIds: input.relatedStarIds ?? [],
+      linkedStarId: input.linkedStarId,
+      createdAt: now(),
+      updatedAt: now(),
+      completedAt: input.completedAt,
+    }
+    write(KEYS.learningGoals, [...goals, goal])
+    return goal
+  }
+
+  async updateLearningGoal(id: string, patch: Partial<LearningGoal>): Promise<LearningGoal> {
+    const goals = await this.listLearningGoals()
+    const idx = goals.findIndex((g) => g.id === id)
+    if (idx === -1) throw new Error(`Learning goal ${id} not found`)
+    const updated = { ...goals[idx], ...patch, updatedAt: now() }
+    goals[idx] = updated
+    write(KEYS.learningGoals, goals)
+    return updated
+  }
+
+  async deleteLearningGoal(id: string): Promise<void> {
+    write(KEYS.learningGoals, (await this.listLearningGoals()).filter((g) => g.id !== id))
+    write(
+      KEYS.learningItems,
+      (await this.listLearningItems()).filter((i) => i.goalId !== id),
+    )
+  }
+
+  async listLearningItems(goalId?: string): Promise<LearningItem[]> {
+    const items = read<LearningItem[]>(KEYS.learningItems, [])
+    return goalId ? items.filter((i) => i.goalId === goalId) : items
+  }
+
+  async createLearningItem(
+    input: Partial<LearningItem> & { goalId: string; name: string },
+  ): Promise<LearningItem> {
+    const items = await this.listLearningItems()
+    const item: LearningItem = {
+      id: uuid(),
+      goalId: input.goalId,
+      parentItemId: input.parentItemId,
+      name: input.name,
+      notes: input.notes,
+      status: input.status ?? 'planned',
+      sortIndex: input.sortIndex ?? items.filter((i) => i.goalId === input.goalId).length,
+      createdAt: now(),
+      updatedAt: now(),
+      completedAt: input.completedAt,
+    }
+    write(KEYS.learningItems, [...items, item])
+    return item
+  }
+
+  async updateLearningItem(id: string, patch: Partial<LearningItem>): Promise<LearningItem> {
+    const items = await this.listLearningItems()
+    const idx = items.findIndex((i) => i.id === id)
+    if (idx === -1) throw new Error(`Learning item ${id} not found`)
+    const updated = { ...items[idx], ...patch, updatedAt: now() }
+    items[idx] = updated
+    write(KEYS.learningItems, items)
+    return updated
+  }
+
+  async deleteLearningItem(id: string): Promise<void> {
+    write(
+      KEYS.learningItems,
+      (await this.listLearningItems()).filter((i) => i.id !== id),
     )
   }
 }

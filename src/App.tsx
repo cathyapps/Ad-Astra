@@ -5,10 +5,11 @@ import { Universe } from '@/features/universe/Universe'
 import { Travel } from '@/features/travel/Travel'
 import { Reading } from '@/features/reading/Reading'
 import { Watching } from '@/features/watching/Watching'
+import { Learning } from '@/features/learning/Learning'
 import { CapacityWarningModal } from '@/features/stars/CapacityWarningModal'
 import { useAuthState } from '@/features/auth/AuthContext'
 
-type Tab = 'dashboard' | 'universe' | 'travel' | 'reading' | 'watching'
+type Tab = 'dashboard' | 'universe' | 'travel' | 'reading' | 'watching' | 'learning'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -16,6 +17,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'travel', label: 'Travel' },
   { id: 'reading', label: 'Reading' },
   { id: 'watching', label: 'Watching' },
+  { id: 'learning', label: 'Learning' },
 ]
 
 export default function App() {
@@ -139,6 +141,18 @@ export default function App() {
             onCreateViewingSession={adAstra.createViewingSession}
             onCreateWatchChallenge={adAstra.createWatchChallenge}
             onDeleteWatchChallenge={adAstra.deleteWatchChallenge}
+          />
+        )}
+        {tab === 'learning' && (
+          <Learning
+            goals={adAstra.learningGoals}
+            learningItems={adAstra.learningItems}
+            onCreateGoal={adAstra.createLearningGoal}
+            onUpdateGoal={adAstra.updateLearningGoal}
+            onDeleteGoal={adAstra.deleteLearningGoal}
+            onCreateItem={adAstra.createLearningItem}
+            onUpdateItem={adAstra.updateLearningItem}
+            onDeleteItem={adAstra.deleteLearningItem}
           />
         )}
       </main>

@@ -9,6 +9,7 @@ import type {
   WatchList,
   WatchListItem,
 } from '@/types/watching'
+import type { LearningGoal, LearningItem } from '@/types/learning'
 
 // Every screen and hook talks to this interface, never to localStorage or
 // Supabase directly. Phase 1 ships `LocalStore` (localStorage-backed, works
@@ -111,4 +112,19 @@ export interface AdAstraStore {
   createWatchChallenge(input: Partial<WatchChallenge> & { name: string }): Promise<WatchChallenge>
   updateWatchChallenge(id: string, patch: Partial<WatchChallenge>): Promise<WatchChallenge>
   deleteWatchChallenge(id: string): Promise<void>
+
+  // Phase 4 — Learning: free-form goals with free-entry sub-goals/tasks
+  // (Planets & Moons) nested under them. No metrics, just status.
+  listLearningGoals(): Promise<LearningGoal[]>
+  getLearningGoal(id: string): Promise<LearningGoal | undefined>
+  createLearningGoal(input: Partial<LearningGoal> & { name: string }): Promise<LearningGoal>
+  updateLearningGoal(id: string, patch: Partial<LearningGoal>): Promise<LearningGoal>
+  deleteLearningGoal(id: string): Promise<void>
+
+  listLearningItems(goalId?: string): Promise<LearningItem[]>
+  createLearningItem(
+    input: Partial<LearningItem> & { goalId: string; name: string },
+  ): Promise<LearningItem>
+  updateLearningItem(id: string, patch: Partial<LearningItem>): Promise<LearningItem>
+  deleteLearningItem(id: string): Promise<void>
 }

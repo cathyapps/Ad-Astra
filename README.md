@@ -18,6 +18,12 @@ and time-boxed challenges with live progress bars. TV shows get
 episode-level tracking. Reading also has a StoryGraph-style Insights tab
 — see "Reading stats" below.
 
+**Phase 4: Learning** — free-form goals ("Learn French," "Learn piano,"
+"Refinery details for work") with free-entry sub-goals and tasks nested
+under them (Planets & Moons). No type enum and no metrics, unlike Travel/
+Reading — just a planned/in_progress/completed status at both the goal
+and item level.
+
 ## Planets & Moons
 
 A cross-domain vocabulary for how a Star's goal decomposes:
@@ -37,14 +43,19 @@ A cross-domain vocabulary for how a Star's goal decomposes:
   watched/unwatched state (`src/features/watching/EpisodeList.tsx`).
   Books don't have an equivalent Moon tier — chapters weren't worth
   tracking.
+- **Learning** (Phase 4) — a goal's own top-level `learning_items` (no
+  `parent_item_id`) are its Planets (sub-goals); anything nested under
+  one is a Moon (a specific task or session). Completely free-form — no
+  type field, just a name, optional notes, and status. See
+  `src/features/learning/LearningItemList.tsx`.
 
 ## Auto-managed Stars
 
 Beyond the manual `relatedStarIds` linking above, some things get a Star
 automatically as they progress, via `src/lib/autoStars.ts` and the sync
 logic in `useAdAstra.ts` (`linked_star_id` on trips/books/book_lists/
-watchables/watch_lists — separate from `related_star_ids`, which is still
-free for manual links):
+watchables/watch_lists/learning_goals — separate from `related_star_ids`,
+which is still free for manual links):
 
 - **Trips**: `idea` → no Star; `planning` → Star at `planning`; `booked`
   → Star in `current_orbit`; `completed`/`archived` follow suit. Moving
@@ -54,6 +65,9 @@ free for manual links):
   → Star at `completed`.
 - **Book lists / Watch lists**: always get a Star at `on_the_horizon` the
   moment the list is created — a standing goal, not tied to a status.
+- **Learning goals**: `planned` → no Star; `in_progress` → Star in
+  `current_orbit`; `completed` → Star at `completed`. Moving back to
+  `planned` deletes the auto-created Star.
 
 This bypasses the interactive Current-Orbit capacity prompt on purpose —
 popping that modal as a side effect of logging a reading session would be
@@ -122,6 +136,10 @@ runs with zero setup and nothing to configure.
 - **Watching** (`src/features/watching/`) — the same structure as Reading,
   for movies and TV shows, plus per-episode tracking for TV (a show's
   Moons).
+- **Learning** (`src/features/learning/`) — free-form Goals, each with an
+  inline Planets/Moons editor for sub-goals and tasks (no type field, no
+  metrics — just planned/in_progress/completed). Creating a goal can
+  optionally seed its first Planet in the same step.
 
 ## Known gaps / choices worth knowing about
 
@@ -152,13 +170,13 @@ Every screen goes through `src/lib/db/index.ts`, which exports a single
   `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are set (see DEPLOY.md);
   `AuthGate` swaps the store in after sign-in.
 
-Run migrations `0001` through `0008`, in order, against a fresh Supabase
+Run migrations `0001` through `0009`, in order, against a fresh Supabase
 project (`supabase/migrations/`). Components, hooks, and the lifecycle/
 recommendation logic are all storage-agnostic — adding a table means
 adding it to `AdAstraStore` and both implementations, nothing else.
 
-## Next up (Phase 4+)
+## Next up (Phase 5+)
 
-Learning, Relax & Woo-Woo — each adds tables that reference
-`stars`/`constellations` rather than touching this schema, same pattern
-as Travel/Reading/Watching above.
+Relax & Woo-Woo — adds tables that reference `stars`/`constellations`
+rather than touching this schema, same pattern as Travel/Reading/
+Watching/Learning above.

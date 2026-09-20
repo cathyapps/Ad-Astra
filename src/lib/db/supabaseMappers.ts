@@ -12,6 +12,7 @@ import type {
   WatchList,
   WatchListItem,
 } from '@/types/watching'
+import type { LearningGoal, LearningItem } from '@/types/learning'
 
 export function starFromRow(row: Record<string, unknown>): Star {
   return {
@@ -523,5 +524,67 @@ export function watchChallengeToRow(
   if (input.endDate !== undefined) row.end_date = input.endDate
   if (input.notes !== undefined) row.notes = input.notes
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
+  return row
+}
+
+// --- Phase 4: Learning (Goal -> Planets -> Moons) ---
+
+export function learningGoalFromRow(row: Record<string, unknown>): LearningGoal {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    description: (row.description as string) ?? undefined,
+    status: row.status as LearningGoal['status'],
+    notes: (row.notes as string) ?? undefined,
+    relatedStarIds: (row.related_star_ids as string[]) ?? [],
+    linkedStarId: (row.linked_star_id as string) ?? undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    completedAt: (row.completed_at as string) ?? undefined,
+  }
+}
+
+export function learningGoalToRow(
+  input: Partial<LearningGoal>,
+  userId: string,
+): Record<string, unknown> {
+  const row: Record<string, unknown> = { user_id: userId }
+  if (input.name !== undefined) row.name = input.name
+  if (input.description !== undefined) row.description = input.description
+  if (input.status !== undefined) row.status = input.status
+  if (input.notes !== undefined) row.notes = input.notes
+  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
+  if (input.linkedStarId !== undefined) row.linked_star_id = input.linkedStarId
+  if (input.completedAt !== undefined) row.completed_at = input.completedAt
+  return row
+}
+
+export function learningItemFromRow(row: Record<string, unknown>): LearningItem {
+  return {
+    id: row.id as string,
+    goalId: row.goal_id as string,
+    parentItemId: (row.parent_item_id as string) ?? undefined,
+    name: row.name as string,
+    notes: (row.notes as string) ?? undefined,
+    status: row.status as LearningItem['status'],
+    sortIndex: (row.sort_index as number) ?? 0,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    completedAt: (row.completed_at as string) ?? undefined,
+  }
+}
+
+export function learningItemToRow(
+  input: Partial<LearningItem>,
+  userId: string,
+): Record<string, unknown> {
+  const row: Record<string, unknown> = { user_id: userId }
+  if (input.goalId !== undefined) row.goal_id = input.goalId
+  if (input.parentItemId !== undefined) row.parent_item_id = input.parentItemId
+  if (input.name !== undefined) row.name = input.name
+  if (input.notes !== undefined) row.notes = input.notes
+  if (input.status !== undefined) row.status = input.status
+  if (input.sortIndex !== undefined) row.sort_index = input.sortIndex
+  if (input.completedAt !== undefined) row.completed_at = input.completedAt
   return row
 }

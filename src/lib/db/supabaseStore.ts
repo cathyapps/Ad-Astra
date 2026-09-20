@@ -10,6 +10,7 @@ import type {
   WatchList,
   WatchListItem,
 } from '@/types/watching'
+import type { LearningGoal, LearningItem } from '@/types/learning'
 import type { AdAstraStore } from './types'
 import {
   bookFromRow,
@@ -21,6 +22,10 @@ import {
   constellationToRow,
   episodeFromRow,
   episodeToRow,
+  learningGoalFromRow,
+  learningGoalToRow,
+  learningItemFromRow,
+  learningItemToRow,
   readingChallengeFromRow,
   readingChallengeToRow,
   readingSessionFromRow,
@@ -729,6 +734,94 @@ export class SupabaseStore implements AdAstraStore {
 
   async deleteWatchChallenge(id: string): Promise<void> {
     const { error } = await this.client.from('watch_challenges').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  // --- Phase 4: Learning (Goal -> Planets -> Moons) ---
+
+  async listLearningGoals(): Promise<LearningGoal[]> {
+    const { data, error } = await this.client
+      .from('learning_goals')
+      .select('*')
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return (data ?? []).map(learningGoalFromRow)
+  }
+
+  async getLearningGoal(id: string): Promise<LearningGoal | undefined> {
+    const { data, error } = await this.client
+      .from('learning_goals')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    if (error) throw error
+    return data ? learningGoalFromRow(data) : undefined
+  }
+
+  async createLearningGoal(input: Partial<LearningGoal> & { name: string }): Promise<LearningGoal> {
+    const { data, error } = await this.client
+      .from('learning_goals')
+      .insert(learningGoalToRow(input, this.userId))
+      .select()
+      .single()
+    if (error) throw error
+    return learningGoalFromRow(must(data, 'Learning goal'))
+  }
+
+  async updateLearningGoal(id: string, patch: Partial<LearningGoal>): Promise<LearningGoal> {
+    const { data, error } = await this.client
+      .from('learning_goals')
+      .update(learningGoalToRow(patch, this.userId))
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return learningGoalFromRow(must(data, 'Learning goal'))
+  }
+
+  async deleteLearningGoal(id: string): Promise<void> {
+    // learning_items has an ON DELETE CASCADE FK to learning_goals, so no
+    // manual cleanup needed.
+    const { error } = await this.client.from('learning_goals').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  async listLearningItems(goalId?: string): Promise<LearningItem[]> {
+    let query = this.client
+      .from('learning_items')
+      .select('*')
+      .order('sort_index', { ascending: true })
+    if (goalId) query = query.eq('goal_id', goalId)
+    const { data, error } = await query
+    if (error) throw error
+    return (data ?? []).map(learningItemFromRow)
+  }
+
+  async createLearningItem(
+    input: Partial<LearningItem> & { goalId: string; name: string },
+  ): Promise<LearningItem> {
+    const { data, error } = await this.client
+      .from('learning_items')
+      .insert(learningItemToRow(input, this.userId))
+      .select()
+      .single()
+    if (error) throw error
+    return learningItemFromRow(must(data, 'Learning item'))
+  }
+
+  async updateLearningItem(id: string, patch: Partial<LearningItem>): Promise<LearningItem> {
+    const { data, error } = await this.client
+      .from('learning_items')
+      .update(learningItemToRow(patch, this.userId))
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return learningItemFromRow(must(data, 'Learning item'))
+  }
+
+  async deleteLearningItem(id: string): Promise<void> {
+    const { error } = await this.client.from('learning_items').delete().eq('id', id)
     if (error) throw error
   }
 }
