@@ -38,7 +38,7 @@ export function TripList({ trips, onSelect, selectedId }: Props) {
         )
       })}
       {trips.length === 0 && (
-        <p className="text-sm text-moon-dim">No trips yet — turn a destination into a trip, or start one below.</p>
+        <p className="text-sm text-moon-dim">No trips yet — even a single someday idea starts one below.</p>
       )}
     </div>
   )

@@ -1,11 +1,10 @@
-import type { TravelDestination, Trip, TripItem } from '@/types/travel'
+import type { Trip, TripItem } from '@/types/travel'
 import { TRIP_STATUS_LABELS, TripStatusBadge } from './travelLabels'
 import { allowedTripTransitions } from './travelTransitions'
 import { TripItemList } from './TripItemList'
 
 interface Props {
   trip: Trip
-  destinations: TravelDestination[]
   items: TripItem[]
   onUpdate: (patch: Partial<Trip>) => void
   onDelete: () => void
@@ -17,7 +16,6 @@ interface Props {
 
 export function TripDetail({
   trip,
-  destinations,
   items,
   onUpdate,
   onDelete,
@@ -27,7 +25,7 @@ export function TripDetail({
   onClose,
 }: Props) {
   const options = allowedTripTransitions(trip.status)
-  const tripDestinations = destinations.filter((d) => trip.destinationIds.includes(d.id))
+  const planets = items.filter((i) => !i.parentItemId)
 
   return (
     <div className="border border-hairline rounded-xl p-4 space-y-4 bg-card">
@@ -36,10 +34,8 @@ export function TripDetail({
           <h2 className="font-display text-lg text-moon">{trip.name}</h2>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <TripStatusBadge status={trip.status} />
-            {tripDestinations.length > 0 && (
-              <span className="text-xs text-moon-dim">
-                {tripDestinations.map((d) => d.name).join(', ')}
-              </span>
+            {planets.length > 0 && (
+              <span className="text-xs text-moon-dim">{planets.map((p) => p.name).join(', ')}</span>
             )}
           </div>
         </div>
@@ -73,7 +69,7 @@ export function TripDetail({
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-moon mb-2">Itinerary</h3>
+        <h3 className="text-sm font-medium text-moon mb-2">Planets &amp; Moons</h3>
         <TripItemList
           tripId={trip.id}
           items={items}

@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import type { AppSettings, Constellation, Star, Task } from '@/types'
-import type { TravelDestination, Trip, TripItem } from '@/types/travel'
+import type { Trip, TripItem } from '@/types/travel'
 import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
 import type {
   Episode,
@@ -17,7 +17,6 @@ const KEYS = {
   constellations: 'ad_astra_constellations',
   tasks: 'ad_astra_tasks',
   settings: 'ad_astra_settings',
-  destinations: 'ad_astra_destinations',
   trips: 'ad_astra_trips',
   tripItems: 'ad_astra_trip_items',
   books: 'ad_astra_books',
@@ -215,63 +214,7 @@ export class LocalStore implements AdAstraStore {
     return updated
   }
 
-  // --- Phase 2: Travel ---
-
-  async listDestinations(): Promise<TravelDestination[]> {
-    return read<TravelDestination[]>(KEYS.destinations, [])
-  }
-
-  async getDestination(id: string): Promise<TravelDestination | undefined> {
-    return (await this.listDestinations()).find((d) => d.id === id)
-  }
-
-  async createDestination(
-    input: Partial<TravelDestination> & { name: string },
-  ): Promise<TravelDestination> {
-    const destinations = await this.listDestinations()
-    const destination: TravelDestination = {
-      id: uuid(),
-      country: input.country,
-      region: input.region,
-      city: input.city,
-      name: input.name,
-      images: input.images ?? [],
-      why: input.why,
-      desiredTripLength: input.desiredTripLength,
-      bestSeason: input.bestSeason,
-      estimatedCost: input.estimatedCost,
-      companions: input.companions ?? [],
-      lifeStageTags: input.lifeStageTags ?? [],
-      status: input.status ?? 'bucket_list',
-      relatedStarIds: input.relatedStarIds ?? [],
-      relatedConstellationIds: input.relatedConstellationIds ?? [],
-      notes: input.notes,
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.destinations, [...destinations, destination])
-    return destination
-  }
-
-  async updateDestination(
-    id: string,
-    patch: Partial<TravelDestination>,
-  ): Promise<TravelDestination> {
-    const destinations = await this.listDestinations()
-    const idx = destinations.findIndex((d) => d.id === id)
-    if (idx === -1) throw new Error(`Destination ${id} not found`)
-    const updated = { ...destinations[idx], ...patch, updatedAt: now() }
-    destinations[idx] = updated
-    write(KEYS.destinations, destinations)
-    return updated
-  }
-
-  async deleteDestination(id: string): Promise<void> {
-    write(
-      KEYS.destinations,
-      (await this.listDestinations()).filter((d) => d.id !== id),
-    )
-  }
+  // --- Phase 2: Travel (Trip -> Planets -> Moons; no standalone destinations) ---
 
   async listTrips(): Promise<Trip[]> {
     return read<Trip[]>(KEYS.trips, [])
@@ -286,7 +229,6 @@ export class LocalStore implements AdAstraStore {
     const trip: Trip = {
       id: uuid(),
       name: input.name,
-      destinationIds: input.destinationIds ?? [],
       status: input.status ?? 'idea',
       startDate: input.startDate,
       endDate: input.endDate,
@@ -294,6 +236,7 @@ export class LocalStore implements AdAstraStore {
       budget: input.budget,
       notes: input.notes,
       relatedStarIds: input.relatedStarIds ?? [],
+      linkedStarId: input.linkedStarId,
       createdAt: now(),
       updatedAt: now(),
     }
@@ -338,6 +281,12 @@ export class LocalStore implements AdAstraStore {
       notes: input.notes,
       cost: input.cost,
       sortIndex: input.sortIndex ?? items.filter((i) => i.tripId === input.tripId).length,
+      why: input.why,
+      bestSeason: input.bestSeason,
+      desiredTripLength: input.desiredTripLength,
+      estimatedCost: input.estimatedCost,
+      companions: input.companions ?? [],
+      lifeStageTags: input.lifeStageTags ?? [],
       createdAt: now(),
       updatedAt: now(),
     }
@@ -381,14 +330,17 @@ export class LocalStore implements AdAstraStore {
       series: input.series,
       genre: input.genre,
       format: input.format,
+      source: input.source ?? 'owned',
       edition: input.edition,
-      owned: input.owned ?? false,
       location: input.location,
       status: input.status ?? 'want_to_read',
       rating: input.rating,
+      totalPages: input.totalPages,
+      totalMinutes: input.totalMinutes,
       notes: input.notes,
       relatedStarIds: input.relatedStarIds ?? [],
       relatedConstellationIds: input.relatedConstellationIds ?? [],
+      linkedStarId: input.linkedStarId,
       createdAt: now(),
       updatedAt: now(),
       completedAt: input.completedAt,
@@ -431,6 +383,7 @@ export class LocalStore implements AdAstraStore {
       description: input.description,
       type: input.type ?? 'custom',
       relatedStarIds: input.relatedStarIds ?? [],
+      linkedStarId: input.linkedStarId,
       createdAt: now(),
       updatedAt: now(),
     }
@@ -498,8 +451,10 @@ export class LocalStore implements AdAstraStore {
       id: uuid(),
       bookId: input.bookId,
       date: input.date ?? now().slice(0, 10),
-      pages: input.pages,
-      minutes: input.minutes,
+      currentPage: input.currentPage,
+      currentTimeMinutes: input.currentTimeMinutes,
+      percentComplete: input.percentComplete,
+      minutesSpentReading: input.minutesSpentReading,
       notes: input.notes,
       rating: input.rating,
       completionStatus: input.completionStatus,
@@ -605,6 +560,7 @@ export class LocalStore implements AdAstraStore {
       notes: input.notes,
       relatedStarIds: input.relatedStarIds ?? [],
       relatedConstellationIds: input.relatedConstellationIds ?? [],
+      linkedStarId: input.linkedStarId,
       createdAt: now(),
       updatedAt: now(),
       completedAt: input.completedAt,
@@ -686,6 +642,7 @@ export class LocalStore implements AdAstraStore {
       description: input.description,
       type: input.type ?? 'custom',
       relatedStarIds: input.relatedStarIds ?? [],
+      linkedStarId: input.linkedStarId,
       createdAt: now(),
       updatedAt: now(),
     }

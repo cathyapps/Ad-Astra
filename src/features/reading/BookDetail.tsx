@@ -3,9 +3,12 @@ import type { Constellation, Star } from '@/types'
 import type { Book, BookList, ReadingCompletionStatus, ReadingSession } from '@/types/reading'
 import { BookStatusBadge, BOOK_STATUS_LABELS, StarRating } from './readingLabels'
 import { allowedBookTransitions } from '@/lib/mediaTransitions'
+import { deriveSessions } from '@/lib/readingStats'
 
 const inputClass =
   'border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon placeholder:text-moon-dim/60'
+
+type ProgressKind = 'page' | 'percent' | 'audiobook_time'
 
 interface Props {
   book: Book
@@ -35,8 +38,11 @@ export function BookDetail({
   onClose,
 }: Props) {
   const [showLogForm, setShowLogForm] = useState(false)
-  const [pages, setPages] = useState('')
-  const [minutes, setMinutes] = useState('')
+  const [progressKind, setProgressKind] = useState<ProgressKind>(
+    book.format === 'audiobook' ? 'audiobook_time' : 'page',
+  )
+  const [progressValue, setProgressValue] = useState('')
+  const [minutesSpentReading, setMinutesSpentReading] = useState('')
   const [notes, setNotes] = useState('')
   const [completion, setCompletion] = useState<ReadingCompletionStatus | ''>('')
   const [rating, setRating] = useState('')
@@ -46,6 +52,7 @@ export function BookDetail({
   const relatedConstellations = constellations.filter((c) =>
     book.relatedConstellationIds.includes(c.id),
   )
+  const derived = deriveSessions([book], sessions)
 
   function toggleStar(id: string) {
     const set = new Set(book.relatedStarIds)
@@ -105,15 +112,18 @@ export function BookDetail({
             className="border border-hairline rounded-lg p-3 space-y-2 mb-2 bg-night/40"
             onSubmit={(e) => {
               e.preventDefault()
+              const value = progressValue ? Number(progressValue) : undefined
               onLogSession({
-                pages: pages ? Number(pages) : undefined,
-                minutes: minutes ? Number(minutes) : undefined,
+                currentPage: progressKind === 'page' ? value : undefined,
+                percentComplete: progressKind === 'percent' ? value : undefined,
+                currentTimeMinutes: progressKind === 'audiobook_time' ? value : undefined,
+                minutesSpentReading: minutesSpentReading ? Number(minutesSpentReading) : undefined,
                 notes: notes || undefined,
                 completionStatus: completion || undefined,
                 rating: rating ? Number(rating) : undefined,
               })
-              setPages('')
-              setMinutes('')
+              setProgressValue('')
+              setMinutesSpentReading('')
               setNotes('')
               setCompletion('')
               setRating('')
@@ -121,21 +131,32 @@ export function BookDetail({
             }}
           >
             <div className="grid grid-cols-2 gap-2">
+              <select
+                className={inputClass}
+                value={progressKind}
+                onChange={(e) => setProgressKind(e.target.value as ProgressKind)}
+              >
+                <option value="page">Current page</option>
+                <option value="percent">% complete</option>
+                {book.format === 'audiobook' && <option value="audiobook_time">Audiobook position (min)</option>}
+              </select>
               <input
                 className={inputClass}
-                placeholder="Pages"
+                placeholder={
+                  progressKind === 'page' ? 'Page #' : progressKind === 'percent' ? '%' : 'Minutes in'
+                }
                 inputMode="numeric"
-                value={pages}
-                onChange={(e) => setPages(e.target.value)}
-              />
-              <input
-                className={inputClass}
-                placeholder="Minutes"
-                inputMode="numeric"
-                value={minutes}
-                onChange={(e) => setMinutes(e.target.value)}
+                value={progressValue}
+                onChange={(e) => setProgressValue(e.target.value)}
               />
             </div>
+            <input
+              className={`${inputClass} w-full`}
+              placeholder="Minutes spent reading today (optional, for speed stats)"
+              inputMode="numeric"
+              value={minutesSpentReading}
+              onChange={(e) => setMinutesSpentReading(e.target.value)}
+            />
             <input
               className={`${inputClass} w-full`}
               placeholder="Notes"
@@ -172,11 +193,13 @@ export function BookDetail({
 
         <div className="space-y-1.5">
           {sessions.length === 0 && <p className="text-xs text-moon-dim">No sessions logged yet.</p>}
-          {sessions.map((s) => (
+          {derived.map(({ session: s, pagesRead, speedPagesPerHour }) => (
             <div key={s.id} className="text-xs text-moon-dim border border-hairline rounded-lg px-3 py-2">
               {s.date}
-              {s.pages != null && ` · ${s.pages}p`}
-              {s.minutes != null && ` · ${s.minutes}m`}
+              {pagesRead != null && pagesRead > 0 && ` · ${pagesRead}p read`}
+              {s.percentComplete != null && ` · ${s.percentComplete}%`}
+              {s.minutesSpentReading != null && ` · ${s.minutesSpentReading}m`}
+              {speedPagesPerHour != null && ` · ${speedPagesPerHour}p/hr`}
               {s.completionStatus === 'completed' && ' · finished'}
               {s.completionStatus === 'dnf' && ' · DNF'}
               {s.notes && <div className="text-moon mt-0.5">{s.notes}</div>}

@@ -6,6 +6,7 @@ import { BookLibrary } from './BookLibrary'
 import { BookDetail } from './BookDetail'
 import { BookListForm, BookListsPanel } from './BookLists'
 import { ReadingChallengeForm, ReadingChallengesPanel } from './ReadingChallenges'
+import { ReadingInsights } from './ReadingInsights'
 import { currentStreakDays } from '@/lib/readingStats'
 
 interface Props {
@@ -26,7 +27,7 @@ interface Props {
   onDeleteReadingChallenge: (id: string) => void
 }
 
-type SubTab = 'library' | 'lists' | 'challenges'
+type SubTab = 'library' | 'lists' | 'challenges' | 'insights'
 
 export function Reading({
   stars,
@@ -73,7 +74,7 @@ export function Reading({
 
       <div className="flex items-center justify-between">
         <div className="flex gap-1 text-sm border border-hairline rounded-full p-1">
-          {(['library', 'lists', 'challenges'] as SubTab[]).map((t) => (
+          {(['library', 'lists', 'challenges', 'insights'] as SubTab[]).map((t) => (
             <button
               key={t}
               className={`rounded-full px-3 py-1 transition-colors capitalize ${
@@ -86,7 +87,8 @@ export function Reading({
           ))}
         </div>
         <button
-          className="border border-hairline rounded-full px-3 py-1.5 text-sm text-moon hover:bg-card-hover transition-colors"
+          className="border border-hairline rounded-full px-3 py-1.5 text-sm text-moon hover:bg-card-hover transition-colors disabled:opacity-0"
+          disabled={subTab === 'insights'}
           onClick={() => {
             if (subTab === 'library') setShowBookForm(true)
             if (subTab === 'lists') setShowListForm(true)
@@ -177,11 +179,14 @@ export function Reading({
           )}
           <ReadingChallengesPanel
             challenges={readingChallenges}
+            books={books}
             sessions={readingSessions}
             onDelete={onDeleteReadingChallenge}
           />
         </>
       )}
+
+      {subTab === 'insights' && <ReadingInsights books={books} sessions={readingSessions} />}
     </div>
   )
 }

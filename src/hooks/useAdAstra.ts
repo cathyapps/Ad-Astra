@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { db } from '@/lib/db'
 import { checkCapacity, resolveCapacityChoice, type CapacityChoice } from '@/lib/currentOrbit'
 import { planTransition } from '@/lib/starLifecycle'
+import { tripStatusToStarStage, bookStatusToStarStage, watchStatusToStarStage } from '@/lib/autoStars'
 import type { AppSettings, Constellation, Star, StarStage, Task } from '@/types'
-import type { TravelDestination, Trip, TripItem } from '@/types/travel'
+import type { Trip, TripItem } from '@/types/travel'
 import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
 import type {
   Episode,
@@ -21,12 +22,48 @@ export interface PendingCapacityPrompt {
   incomingStarId: string
 }
 
+/** Creates, updates, or removes the auto-managed Star for a Trip/Book/
+ *  Watchable as its status changes, or for a BookList/WatchList (which
+ *  always gets one). desiredStage === null means "no Star should exist
+ *  right now" (e.g. a Trip still at 'idea', a Book still 'want_to_read').
+ *  Bypasses the interactive Current-Orbit capacity prompt on purpose —
+ *  surfacing that modal as a side effect of, say, logging a reading
+ *  session would be jarring; auto-linked stars just add to the orbit. */
+async function syncLinkedStar(params: {
+  linkedStarId?: string
+  desiredStage: StarStage | null
+  name: string
+  category?: Star['category']
+}): Promise<string | undefined> {
+  const { linkedStarId, desiredStage, name, category } = params
+
+  if (desiredStage === null) {
+    if (linkedStarId) {
+      await db.deleteStar(linkedStarId)
+      return undefined
+    }
+    return undefined
+  }
+
+  if (linkedStarId) {
+    const star = await db.getStar(linkedStarId)
+    if (star && star.stage !== desiredStage) {
+      await db.updateStar(linkedStarId, { stage: desiredStage })
+    } else if (star && star.name !== name) {
+      await db.updateStar(linkedStarId, { name })
+    }
+    return linkedStarId
+  }
+
+  const star = await db.createStar({ name, category, stage: desiredStage })
+  return star.id
+}
+
 export function useAdAstra() {
   const [stars, setStars] = useState<Star[]>([])
   const [constellations, setConstellations] = useState<Constellation[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [settings, setSettings] = useState<AppSettings>({ currentOrbitLimit: 5 })
-  const [destinations, setDestinations] = useState<TravelDestination[]>([])
   const [trips, setTrips] = useState<Trip[]>([])
   const [tripItems, setTripItems] = useState<TripItem[]>([])
   const [books, setBooks] = useState<Book[]>([])
@@ -49,7 +86,6 @@ export function useAdAstra() {
       c,
       t,
       set,
-      dest,
       tr,
       items,
       bks,
@@ -68,7 +104,6 @@ export function useAdAstra() {
       db.listConstellations(),
       db.listTasks(),
       db.getSettings(),
-      db.listDestinations(),
       db.listTrips(),
       db.listTripItems(),
       db.listBooks(),
@@ -87,7 +122,6 @@ export function useAdAstra() {
     setConstellations(c)
     setTasks(t)
     setSettings(set)
-    setDestinations(dest)
     setTrips(tr)
     setTripItems(items)
     setBooks(bks)
@@ -213,36 +247,20 @@ export function useAdAstra() {
     [],
   )
 
-  // --- Phase 2: Travel ---
-
-  const createDestination = useCallback(
-    async (input: Partial<TravelDestination> & { name: string }) => {
-      const d = await db.createDestination(input)
-      await reload()
-      return d
-    },
-    [reload],
-  )
-
-  const updateDestination = useCallback(
-    async (id: string, patch: Partial<TravelDestination>) => {
-      await db.updateDestination(id, patch)
-      await reload()
-    },
-    [reload],
-  )
-
-  const deleteDestination = useCallback(
-    async (id: string) => {
-      await db.deleteDestination(id)
-      await reload()
-    },
-    [reload],
-  )
+  // --- Phase 2: Travel (Trip -> Planets -> Moons) ---
 
   const createTrip = useCallback(
     async (input: Partial<Trip> & { name: string }) => {
       const trip = await db.createTrip(input)
+      const linkedStarId = await syncLinkedStar({
+        linkedStarId: trip.linkedStarId,
+        desiredStage: tripStatusToStarStage(trip.status),
+        name: trip.name,
+        category: 'travel',
+      })
+      if (linkedStarId !== trip.linkedStarId) {
+        await db.updateTrip(trip.id, { linkedStarId })
+      }
       await reload()
       return trip
     },
@@ -251,7 +269,18 @@ export function useAdAstra() {
 
   const updateTrip = useCallback(
     async (id: string, patch: Partial<Trip>) => {
-      await db.updateTrip(id, patch)
+      const trip = await db.updateTrip(id, patch)
+      if (patch.status !== undefined || patch.name !== undefined) {
+        const linkedStarId = await syncLinkedStar({
+          linkedStarId: trip.linkedStarId,
+          desiredStage: tripStatusToStarStage(trip.status),
+          name: trip.name,
+          category: 'travel',
+        })
+        if (linkedStarId !== trip.linkedStarId) {
+          await db.updateTrip(trip.id, { linkedStarId })
+        }
+      }
       await reload()
     },
     [reload],
@@ -295,6 +324,15 @@ export function useAdAstra() {
   const createBook = useCallback(
     async (input: Partial<Book> & { title: string }) => {
       const b = await db.createBook(input)
+      const linkedStarId = await syncLinkedStar({
+        linkedStarId: b.linkedStarId,
+        desiredStage: bookStatusToStarStage(b.status),
+        name: b.title,
+        category: 'reading',
+      })
+      if (linkedStarId !== b.linkedStarId) {
+        await db.updateBook(b.id, { linkedStarId })
+      }
       await reload()
       return b
     },
@@ -303,7 +341,18 @@ export function useAdAstra() {
 
   const updateBook = useCallback(
     async (id: string, patch: Partial<Book>) => {
-      await db.updateBook(id, patch)
+      const book = await db.updateBook(id, patch)
+      if (patch.status !== undefined || patch.title !== undefined) {
+        const linkedStarId = await syncLinkedStar({
+          linkedStarId: book.linkedStarId,
+          desiredStage: bookStatusToStarStage(book.status),
+          name: book.title,
+          category: 'reading',
+        })
+        if (linkedStarId !== book.linkedStarId) {
+          await db.updateBook(book.id, { linkedStarId })
+        }
+      }
       await reload()
     },
     [reload],
@@ -320,6 +369,8 @@ export function useAdAstra() {
   const createBookList = useCallback(
     async (input: Partial<BookList> & { name: string }) => {
       const l = await db.createBookList(input)
+      const star = await db.createStar({ name: l.name, category: 'reading', stage: 'on_the_horizon' })
+      await db.updateBookList(l.id, { linkedStarId: star.id })
       await reload()
       return l
     },
@@ -346,6 +397,20 @@ export function useAdAstra() {
   const createReadingSession = useCallback(
     async (input: Partial<ReadingSession> & { bookId: string }) => {
       const s = await db.createReadingSession(input)
+      if (s.completionStatus === 'completed' || s.completionStatus === 'dnf') {
+        const book = await db.getBook(s.bookId)
+        if (book) {
+          const linkedStarId = await syncLinkedStar({
+            linkedStarId: book.linkedStarId,
+            desiredStage: bookStatusToStarStage(book.status),
+            name: book.title,
+            category: 'reading',
+          })
+          if (linkedStarId !== book.linkedStarId) {
+            await db.updateBook(book.id, { linkedStarId })
+          }
+        }
+      }
       await reload()
       return s
     },
@@ -382,6 +447,15 @@ export function useAdAstra() {
   const createWatchable = useCallback(
     async (input: Partial<Watchable> & { title: string }) => {
       const w = await db.createWatchable(input)
+      const linkedStarId = await syncLinkedStar({
+        linkedStarId: w.linkedStarId,
+        desiredStage: watchStatusToStarStage(w.status),
+        name: w.title,
+        category: 'other',
+      })
+      if (linkedStarId !== w.linkedStarId) {
+        await db.updateWatchable(w.id, { linkedStarId })
+      }
       await reload()
       return w
     },
@@ -390,7 +464,18 @@ export function useAdAstra() {
 
   const updateWatchable = useCallback(
     async (id: string, patch: Partial<Watchable>) => {
-      await db.updateWatchable(id, patch)
+      const watchable = await db.updateWatchable(id, patch)
+      if (patch.status !== undefined || patch.title !== undefined) {
+        const linkedStarId = await syncLinkedStar({
+          linkedStarId: watchable.linkedStarId,
+          desiredStage: watchStatusToStarStage(watchable.status),
+          name: watchable.title,
+          category: 'other',
+        })
+        if (linkedStarId !== watchable.linkedStarId) {
+          await db.updateWatchable(watchable.id, { linkedStarId })
+        }
+      }
       await reload()
     },
     [reload],
@@ -432,6 +517,8 @@ export function useAdAstra() {
   const createWatchList = useCallback(
     async (input: Partial<WatchList> & { name: string }) => {
       const l = await db.createWatchList(input)
+      const star = await db.createStar({ name: l.name, category: 'other', stage: 'on_the_horizon' })
+      await db.updateWatchList(l.id, { linkedStarId: star.id })
       await reload()
       return l
     },
@@ -458,6 +545,20 @@ export function useAdAstra() {
   const createViewingSession = useCallback(
     async (input: Partial<ViewingSession> & { watchableId: string }) => {
       const s = await db.createViewingSession(input)
+      if (s.completionStatus === 'completed' || s.completionStatus === 'dnf') {
+        const watchable = await db.getWatchable(s.watchableId)
+        if (watchable) {
+          const linkedStarId = await syncLinkedStar({
+            linkedStarId: watchable.linkedStarId,
+            desiredStage: watchStatusToStarStage(watchable.status),
+            name: watchable.title,
+            category: 'other',
+          })
+          if (linkedStarId !== watchable.linkedStarId) {
+            await db.updateWatchable(watchable.id, { linkedStarId })
+          }
+        }
+      }
       await reload()
       return s
     },
@@ -495,7 +596,6 @@ export function useAdAstra() {
     constellations,
     tasks,
     settings,
-    destinations,
     trips,
     tripItems,
     books,
@@ -520,9 +620,6 @@ export function useAdAstra() {
     createTask,
     updateTask,
     updateSettings,
-    createDestination,
-    updateDestination,
-    deleteDestination,
     createTrip,
     updateTrip,
     deleteTrip,

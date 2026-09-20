@@ -89,14 +89,8 @@ export default function App() {
         )}
         {tab === 'travel' && (
           <Travel
-            stars={adAstra.stars}
-            constellations={adAstra.constellations}
-            destinations={adAstra.destinations}
             trips={adAstra.trips}
             tripItems={adAstra.tripItems}
-            onCreateDestination={adAstra.createDestination}
-            onUpdateDestination={adAstra.updateDestination}
-            onDeleteDestination={adAstra.deleteDestination}
             onCreateTrip={adAstra.createTrip}
             onUpdateTrip={adAstra.updateTrip}
             onDeleteTrip={adAstra.deleteTrip}

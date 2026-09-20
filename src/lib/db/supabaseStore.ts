@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AppSettings, Constellation, Star, Task } from '@/types'
-import type { TravelDestination, Trip, TripItem } from '@/types/travel'
+import type { Trip, TripItem } from '@/types/travel'
 import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
 import type {
   Episode,
@@ -19,8 +19,6 @@ import {
   bookToRow,
   constellationFromRow,
   constellationToRow,
-  destinationFromRow,
-  destinationToRow,
   episodeFromRow,
   episodeToRow,
   readingChallengeFromRow,
@@ -206,57 +204,7 @@ export class SupabaseStore implements AdAstraStore {
     return merged
   }
 
-  // --- Phase 2: Travel ---
-
-  async listDestinations(): Promise<TravelDestination[]> {
-    const { data, error } = await this.client
-      .from('travel_destinations')
-      .select('*')
-      .order('created_at', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map(destinationFromRow)
-  }
-
-  async getDestination(id: string): Promise<TravelDestination | undefined> {
-    const { data, error } = await this.client
-      .from('travel_destinations')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle()
-    if (error) throw error
-    return data ? destinationFromRow(data) : undefined
-  }
-
-  async createDestination(
-    input: Partial<TravelDestination> & { name: string },
-  ): Promise<TravelDestination> {
-    const { data, error } = await this.client
-      .from('travel_destinations')
-      .insert(destinationToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    return destinationFromRow(must(data, 'Destination'))
-  }
-
-  async updateDestination(
-    id: string,
-    patch: Partial<TravelDestination>,
-  ): Promise<TravelDestination> {
-    const { data, error } = await this.client
-      .from('travel_destinations')
-      .update(destinationToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return destinationFromRow(must(data, 'Destination'))
-  }
-
-  async deleteDestination(id: string): Promise<void> {
-    const { error } = await this.client.from('travel_destinations').delete().eq('id', id)
-    if (error) throw error
-  }
+  // --- Phase 2: Travel (Trip -> Planets -> Moons) ---
 
   async listTrips(): Promise<Trip[]> {
     const { data, error } = await this.client

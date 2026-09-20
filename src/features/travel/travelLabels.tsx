@@ -1,12 +1,4 @@
-import type { DestinationStatus, TripStatus, LifeStageTag } from '@/types/travel'
-
-export const DESTINATION_STATUS_LABELS: Record<DestinationStatus, string> = {
-  bucket_list: 'Bucket List',
-  planning: 'Planning',
-  booked: 'Booked',
-  visited: 'Visited',
-  archived: 'Archived',
-}
+import type { TripStatus, LifeStageTag } from '@/types/travel'
 
 export const TRIP_STATUS_LABELS: Record<TripStatus, string> = {
   idea: 'Idea',
@@ -22,16 +14,6 @@ export const LIFE_STAGE_LABELS: Record<LifeStageTag, string> = {
   while_young: 'While young',
   anytime: 'Anytime',
   retirement: 'Retirement',
-}
-
-export function DestinationStatusBadge({ status }: { status: DestinationStatus }) {
-  const dot = status === 'visited' || status === 'archived' ? 'bg-moon-dim' : 'bg-cosmic'
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs border border-hairline rounded-full px-2.5 py-1 text-moon-dim">
-      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-      {DESTINATION_STATUS_LABELS[status]}
-    </span>
-  )
 }
 
 export function TripStatusBadge({ status }: { status: TripStatus }) {

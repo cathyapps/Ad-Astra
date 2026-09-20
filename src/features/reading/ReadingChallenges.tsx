@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { ReadingChallenge, ReadingGoalType, ReadingSession } from '@/types/reading'
-import { booksCompletedInRange, pagesReadInRange } from '@/lib/readingStats'
+import type { Book, ReadingChallenge, ReadingGoalType, ReadingSession } from '@/types/reading'
+import { booksCompletedInRange, deriveSessions, pagesReadInRange } from '@/lib/readingStats'
 
 const inputClass =
   'mt-1 w-full border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60'
@@ -103,11 +103,13 @@ export function ReadingChallengeForm({ onSave, onCancel }: FormProps) {
 
 interface PanelProps {
   challenges: ReadingChallenge[]
+  books: Book[]
   sessions: ReadingSession[]
   onDelete: (id: string) => void
 }
 
-export function ReadingChallengesPanel({ challenges, sessions, onDelete }: PanelProps) {
+export function ReadingChallengesPanel({ challenges, books, sessions, onDelete }: PanelProps) {
+  const derived = deriveSessions(books, sessions)
   return (
     <div className="space-y-3">
       {challenges.map((c) => {
@@ -116,7 +118,7 @@ export function ReadingChallengesPanel({ challenges, sessions, onDelete }: Panel
         const progress =
           c.goalType === 'book_count'
             ? booksCompletedInRange(sessions, start, end)
-            : pagesReadInRange(sessions, start, end)
+            : pagesReadInRange(derived, start, end)
         const pct = Math.min(100, Math.round((progress / c.target) * 100))
         return (
           <div key={c.id} className="border border-hairline rounded-xl p-3 bg-card space-y-2">

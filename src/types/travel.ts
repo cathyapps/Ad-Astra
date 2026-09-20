@@ -1,6 +1,13 @@
-// Travel domain types — Phase 2 (spec §17).
-// References stars/constellations by id rather than changing core types
-// (see the note at the top of types/index.ts).
+// Travel domain types — Phase 2 (spec §17), restructured per user request:
+// every travel aspiration is a Trip. A lone "someday" idea is just a Trip
+// with one Planet in it; a multi-country trip groups several Planets.
+// There is no separate standalone "destinations" list anymore — a Planet
+// (a trip_item with no parent) carries the rich bucket-list-style fields
+// that used to live on TravelDestination, and a Moon (a trip_item nested
+// under a Planet) is whatever's inside it — a city, an attraction, an
+// activity, a meal, a transfer. Moons can themselves be cities; nesting
+// depth isn't semantically fixed to "country > city > activity" — it's
+// just "top-level item" vs "nested item" for a given trip.
 
 export type LifeStageTag =
   | 'before_kids'
@@ -17,41 +24,6 @@ export const LIFE_STAGE_TAGS: LifeStageTag[] = [
   'retirement',
 ]
 
-export type DestinationStatus = 'bucket_list' | 'planning' | 'booked' | 'visited' | 'archived'
-
-export const DESTINATION_STATUS_ORDER: DestinationStatus[] = [
-  'bucket_list',
-  'planning',
-  'booked',
-  'visited',
-  'archived',
-]
-
-// "Destination Bucket List" (§17)
-export interface TravelDestination {
-  id: string
-  country?: string
-  region?: string
-  city?: string
-  name: string // the destination itself, e.g. "Kyoto in cherry blossom season"
-  images: string[]
-  why?: string // "why I want to go"
-  desiredTripLength?: string // free text, e.g. "10-14 days"
-  bestSeason?: string
-  estimatedCost?: number
-  companions?: string[] // who — "Mike", "Sam", "college friends"...
-  lifeStageTags: LifeStageTag[] // when — before kids, with kids, etc.
-  status: DestinationStatus
-
-  relatedStarIds: string[]
-  relatedConstellationIds: string[]
-
-  notes?: string
-  createdAt: string
-  updatedAt: string
-  archivedAt?: string
-}
-
 export type TripStatus = 'idea' | 'planning' | 'booked' | 'completed' | 'archived'
 
 export const TRIP_STATUS_ORDER: TripStatus[] = [
@@ -62,12 +34,9 @@ export const TRIP_STATUS_ORDER: TripStatus[] = [
   'archived',
 ]
 
-// A trip idea can grow into an actual trip just by advancing its status
-// and filling in dates — no separate "trip_ideas" table needed (§17).
 export interface Trip {
   id: string
   name: string
-  destinationIds: string[]
   status: TripStatus
 
   startDate?: string
@@ -77,12 +46,18 @@ export interface Trip {
   notes?: string
 
   relatedStarIds: string[]
+  // Auto-managed: set once this trip progresses past 'idea'. See
+  // src/lib/autoStars.ts. Cleared (and the Star deleted) if the trip
+  // regresses back to 'idea'.
+  linkedStarId?: string
 
   createdAt: string
   updatedAt: string
 }
 
 export type TripItemType =
+  | 'country'
+  | 'region'
   | 'city'
   | 'attraction'
   | 'activity'
@@ -91,6 +66,8 @@ export type TripItemType =
   | 'transportation'
 
 export const TRIP_ITEM_TYPES: TripItemType[] = [
+  'country',
+  'region',
   'city',
   'attraction',
   'activity',
@@ -102,13 +79,23 @@ export const TRIP_ITEM_TYPES: TripItemType[] = [
 export interface TripItem {
   id: string
   tripId: string
-  parentItemId?: string // set for a Moon nested under a Planet-tier item (usually a city)
+  parentItemId?: string // absent = a Planet (top-level); present = a Moon nested under that Planet
   type: TripItemType
   name: string
   date?: string
   notes?: string
   cost?: number
   sortIndex: number
+
+  // Planet-only bucket-list-style fields (formerly on TravelDestination).
+  // Left undefined on Moons, which stay minimal.
+  why?: string
+  bestSeason?: string
+  desiredTripLength?: string
+  estimatedCost?: number
+  companions?: string[]
+  lifeStageTags?: LifeStageTag[]
+
   createdAt: string
   updatedAt: string
 }

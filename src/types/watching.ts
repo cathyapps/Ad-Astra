@@ -22,6 +22,7 @@ export interface Watchable {
 
   relatedStarIds: string[]
   relatedConstellationIds: string[]
+  linkedStarId?: string
 
   createdAt: string
   updatedAt: string
@@ -52,6 +53,7 @@ export interface WatchList {
   description?: string
   type: WatchListType
   relatedStarIds: string[]
+  linkedStarId?: string
   createdAt: string
   updatedAt: string
 }

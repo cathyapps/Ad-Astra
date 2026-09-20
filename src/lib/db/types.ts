@@ -1,5 +1,5 @@
 import type { AppSettings, Constellation, Star, Task } from '@/types'
-import type { TravelDestination, Trip, TripItem } from '@/types/travel'
+import type { Trip, TripItem } from '@/types/travel'
 import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
 import type {
   Episode,
@@ -36,15 +36,8 @@ export interface AdAstraStore {
   getSettings(): Promise<AppSettings>
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>
 
-  // Phase 2 — Travel (spec §17)
-  listDestinations(): Promise<TravelDestination[]>
-  getDestination(id: string): Promise<TravelDestination | undefined>
-  createDestination(
-    input: Partial<TravelDestination> & { name: string },
-  ): Promise<TravelDestination>
-  updateDestination(id: string, patch: Partial<TravelDestination>): Promise<TravelDestination>
-  deleteDestination(id: string): Promise<void>
-
+  // Phase 2 — Travel (spec §17), restructured: no standalone destinations
+  // list. A trip's places are its own top-level TripItems (Planets).
   listTrips(): Promise<Trip[]>
   getTrip(id: string): Promise<Trip | undefined>
   createTrip(input: Partial<Trip> & { name: string }): Promise<Trip>

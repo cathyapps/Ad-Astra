@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { TravelDestination, Trip } from '@/types/travel'
+import type { Trip } from '@/types/travel'
 
 const inputClass =
   'mt-1 w-full border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60'
@@ -7,29 +7,20 @@ const labelClass = 'text-sm block text-moon-dim'
 
 interface Props {
   initial?: Partial<Trip>
-  destinations: TravelDestination[]
-  onSave: (input: Partial<Trip> & { name: string }) => void
+  // Only offered when creating a brand new trip — lets a lone "someday"
+  // idea (a single place) become a Trip with its first Planet in one step.
+  offerFirstPlanet?: boolean
+  onSave: (input: Partial<Trip> & { name: string }, firstPlanetName?: string) => void
   onCancel: () => void
 }
 
-export function TripForm({ initial, destinations, onSave, onCancel }: Props) {
+export function TripForm({ initial, offerFirstPlanet, onSave, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
-  const [destinationIds, setDestinationIds] = useState<Set<string>>(
-    new Set(initial?.destinationIds ?? []),
-  )
+  const [firstPlanetName, setFirstPlanetName] = useState('')
   const [startDate, setStartDate] = useState(initial?.startDate ?? '')
   const [endDate, setEndDate] = useState(initial?.endDate ?? '')
   const [budget, setBudget] = useState(initial?.budget != null ? String(initial.budget) : '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
-
-  function toggleDestination(id: string) {
-    setDestinationIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   return (
     <form
@@ -47,16 +38,18 @@ export function TripForm({ initial, destinations, onSave, onCancel }: Props) {
                 ) + 1,
               )
             : initial?.numDays
-        onSave({
-          ...initial,
-          name: name.trim(),
-          destinationIds: Array.from(destinationIds),
-          startDate: startDate || undefined,
-          endDate: endDate || undefined,
-          numDays,
-          budget: budget ? Number(budget) : undefined,
-          notes: notes || undefined,
-        })
+        onSave(
+          {
+            ...initial,
+            name: name.trim(),
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+            numDays,
+            budget: budget ? Number(budget) : undefined,
+            notes: notes || undefined,
+          },
+          firstPlanetName.trim() || undefined,
+        )
       }}
     >
       <div>
@@ -70,26 +63,16 @@ export function TripForm({ initial, destinations, onSave, onCancel }: Props) {
         />
       </div>
 
-      {destinations.length > 0 && (
-        <div>
-          <span className={labelClass}>Destinations</span>
-          <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {destinations.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => toggleDestination(d.id)}
-                className={`text-xs border rounded-full px-3 py-1.5 transition-colors ${
-                  destinationIds.has(d.id)
-                    ? 'bg-cosmic text-night border-cosmic font-medium'
-                    : 'border-hairline text-moon-dim hover:text-moon'
-                }`}
-              >
-                {d.name}
-              </button>
-            ))}
-          </div>
-        </div>
+      {offerFirstPlanet && (
+        <label className={labelClass}>
+          First planet (optional — a country, region, or city)
+          <input
+            className={inputClass}
+            placeholder="e.g. Japan, or just Kyoto"
+            value={firstPlanetName}
+            onChange={(e) => setFirstPlanetName(e.target.value)}
+          />
+        </label>
       )}
 
       <div className="grid grid-cols-2 gap-3">
