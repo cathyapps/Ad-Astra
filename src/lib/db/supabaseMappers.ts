@@ -2,17 +2,10 @@
 // exact column list visible and in sync with the migrations at a glance,
 // and avoids silently forwarding an unexpected field to Postgres.
 import type { AppSettings, Constellation, Star, Task } from '@/types'
-import type { Trip, TripItem } from '@/types/travel'
-import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
-import type {
-  Episode,
-  ViewingSession,
-  WatchChallenge,
-  Watchable,
-  WatchList,
-  WatchListItem,
-} from '@/types/watching'
-import type { LearningGoal, LearningItem } from '@/types/learning'
+import type { Book, ReadingLog } from '@/types/library'
+import type { BucketListItem } from '@/types/bucketList'
+import type { ChartConfig } from '@/types/charts'
+import type { Episode, ViewingSession, Watchable } from '@/types/watching'
 
 export function starFromRow(row: Record<string, unknown>): Star {
   return {
@@ -39,7 +32,6 @@ export function starFromRow(row: Record<string, unknown>): Star {
     relatedStarIds: (row.related_star_ids as string[]) ?? [],
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
-    archivedAt: (row.archived_at as string) ?? undefined,
   }
 }
 
@@ -65,7 +57,6 @@ export function starToRow(input: Partial<Star>, userId: string): Record<string, 
   if (input.completionDate !== undefined) row.completion_date = input.completionDate
   if (input.reflection !== undefined) row.reflection = input.reflection
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.archivedAt !== undefined) row.archived_at = input.archivedAt
   return row
 }
 
@@ -149,231 +140,13 @@ export function taskToRow(input: Partial<Task>, userId: string): Record<string, 
 }
 
 export function settingsFromRow(row: Record<string, unknown> | null): AppSettings {
-  return { currentOrbitLimit: (row?.current_orbit_limit as number) ?? 5 }
-}
-
-// --- Phase 2: Travel (Trip -> Planets -> Moons) ---
-
-export function tripFromRow(row: Record<string, unknown>): Trip {
   return {
-    id: row.id as string,
-    name: row.name as string,
-    status: row.status as Trip['status'],
-    startDate: (row.start_date as string) ?? undefined,
-    endDate: (row.end_date as string) ?? undefined,
-    numDays: (row.num_days as number) ?? undefined,
-    budget: (row.budget as number) ?? undefined,
-    notes: (row.notes as string) ?? undefined,
-    relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    linkedStarId: (row.linked_star_id as string) ?? undefined,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
+    currentOrbitLimit: (row?.current_orbit_limit as number) ?? 5,
+    readingMetricsTimeframe: (row?.reading_metrics_timeframe as AppSettings['readingMetricsTimeframe']) ?? '30d',
   }
 }
 
-export function tripToRow(input: Partial<Trip>, userId: string): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.name !== undefined) row.name = input.name
-  if (input.status !== undefined) row.status = input.status
-  if (input.startDate !== undefined) row.start_date = input.startDate
-  if (input.endDate !== undefined) row.end_date = input.endDate
-  if (input.numDays !== undefined) row.num_days = input.numDays
-  if (input.budget !== undefined) row.budget = input.budget
-  if (input.notes !== undefined) row.notes = input.notes
-  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.linkedStarId !== undefined) row.linked_star_id = input.linkedStarId
-  return row
-}
-
-export function tripItemFromRow(row: Record<string, unknown>): TripItem {
-  return {
-    id: row.id as string,
-    tripId: row.trip_id as string,
-    parentItemId: (row.parent_item_id as string) ?? undefined,
-    type: row.type as TripItem['type'],
-    name: row.name as string,
-    date: (row.date as string) ?? undefined,
-    notes: (row.notes as string) ?? undefined,
-    cost: (row.cost as number) ?? undefined,
-    sortIndex: (row.sort_index as number) ?? 0,
-    why: (row.why as string) ?? undefined,
-    bestSeason: (row.best_season as string) ?? undefined,
-    desiredTripLength: (row.desired_trip_length as string) ?? undefined,
-    estimatedCost: (row.estimated_cost as number) ?? undefined,
-    companions: (row.companions as string[]) ?? [],
-    lifeStageTags: (row.life_stage_tags as TripItem['lifeStageTags']) ?? [],
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
-}
-
-export function tripItemToRow(input: Partial<TripItem>, userId: string): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.tripId !== undefined) row.trip_id = input.tripId
-  if (input.parentItemId !== undefined) row.parent_item_id = input.parentItemId
-  if (input.type !== undefined) row.type = input.type
-  if (input.name !== undefined) row.name = input.name
-  if (input.date !== undefined) row.date = input.date
-  if (input.notes !== undefined) row.notes = input.notes
-  if (input.cost !== undefined) row.cost = input.cost
-  if (input.sortIndex !== undefined) row.sort_index = input.sortIndex
-  if (input.why !== undefined) row.why = input.why
-  if (input.bestSeason !== undefined) row.best_season = input.bestSeason
-  if (input.desiredTripLength !== undefined) row.desired_trip_length = input.desiredTripLength
-  if (input.estimatedCost !== undefined) row.estimated_cost = input.estimatedCost
-  if (input.companions !== undefined) row.companions = input.companions
-  if (input.lifeStageTags !== undefined) row.life_stage_tags = input.lifeStageTags
-  return row
-}
-
-// --- Phase 3: Reading ---
-
-export function bookFromRow(row: Record<string, unknown>): Book {
-  return {
-    id: row.id as string,
-    title: row.title as string,
-    author: (row.author as string) ?? undefined,
-    series: (row.series as string) ?? undefined,
-    genre: (row.genre as string) ?? undefined,
-    format: (row.format as Book['format']) ?? undefined,
-    source: row.source as Book['source'],
-    edition: (row.edition as string) ?? undefined,
-    location: (row.location as string) ?? undefined,
-    status: row.status as Book['status'],
-    rating: (row.rating as number) ?? undefined,
-    totalPages: (row.total_pages as number) ?? undefined,
-    totalMinutes: (row.total_minutes as number) ?? undefined,
-    notes: (row.notes as string) ?? undefined,
-    relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    relatedConstellationIds: (row.related_constellation_ids as string[]) ?? [],
-    linkedStarId: (row.linked_star_id as string) ?? undefined,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-    completedAt: (row.completed_at as string) ?? undefined,
-  }
-}
-
-export function bookToRow(input: Partial<Book>, userId: string): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.title !== undefined) row.title = input.title
-  if (input.author !== undefined) row.author = input.author
-  if (input.series !== undefined) row.series = input.series
-  if (input.genre !== undefined) row.genre = input.genre
-  if (input.format !== undefined) row.format = input.format
-  if (input.source !== undefined) row.source = input.source
-  if (input.edition !== undefined) row.edition = input.edition
-  if (input.location !== undefined) row.location = input.location
-  if (input.status !== undefined) row.status = input.status
-  if (input.rating !== undefined) row.rating = input.rating
-  if (input.totalPages !== undefined) row.total_pages = input.totalPages
-  if (input.totalMinutes !== undefined) row.total_minutes = input.totalMinutes
-  if (input.notes !== undefined) row.notes = input.notes
-  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.relatedConstellationIds !== undefined)
-    row.related_constellation_ids = input.relatedConstellationIds
-  if (input.linkedStarId !== undefined) row.linked_star_id = input.linkedStarId
-  if (input.completedAt !== undefined) row.completed_at = input.completedAt
-  return row
-}
-
-export function bookListFromRow(row: Record<string, unknown>): BookList {
-  return {
-    id: row.id as string,
-    name: row.name as string,
-    description: (row.description as string) ?? undefined,
-    type: row.type as BookList['type'],
-    relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    linkedStarId: (row.linked_star_id as string) ?? undefined,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
-}
-
-export function bookListToRow(input: Partial<BookList>, userId: string): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.name !== undefined) row.name = input.name
-  if (input.description !== undefined) row.description = input.description
-  if (input.type !== undefined) row.type = input.type
-  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.linkedStarId !== undefined) row.linked_star_id = input.linkedStarId
-  return row
-}
-
-export function bookListItemFromRow(row: Record<string, unknown>): BookListItem {
-  return {
-    id: row.id as string,
-    bookListId: row.book_list_id as string,
-    bookId: row.book_id as string,
-    sortIndex: (row.sort_index as number) ?? 0,
-    createdAt: row.created_at as string,
-  }
-}
-
-export function readingSessionFromRow(row: Record<string, unknown>): ReadingSession {
-  return {
-    id: row.id as string,
-    bookId: row.book_id as string,
-    date: row.date as string,
-    currentPage: (row.current_page as number) ?? undefined,
-    currentTimeMinutes: (row.current_time_minutes as number) ?? undefined,
-    percentComplete: (row.percent_complete as number) ?? undefined,
-    minutesSpentReading: (row.minutes_spent_reading as number) ?? undefined,
-    notes: (row.notes as string) ?? undefined,
-    rating: (row.rating as number) ?? undefined,
-    completionStatus: (row.completion_status as ReadingSession['completionStatus']) ?? undefined,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
-}
-
-export function readingSessionToRow(
-  input: Partial<ReadingSession>,
-  userId: string,
-): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.bookId !== undefined) row.book_id = input.bookId
-  if (input.date !== undefined) row.date = input.date
-  if (input.currentPage !== undefined) row.current_page = input.currentPage
-  if (input.currentTimeMinutes !== undefined) row.current_time_minutes = input.currentTimeMinutes
-  if (input.percentComplete !== undefined) row.percent_complete = input.percentComplete
-  if (input.minutesSpentReading !== undefined) row.minutes_spent_reading = input.minutesSpentReading
-  if (input.notes !== undefined) row.notes = input.notes
-  if (input.rating !== undefined) row.rating = input.rating
-  if (input.completionStatus !== undefined) row.completion_status = input.completionStatus
-  return row
-}
-
-export function readingChallengeFromRow(row: Record<string, unknown>): ReadingChallenge {
-  return {
-    id: row.id as string,
-    name: row.name as string,
-    goalType: row.goal_type as ReadingChallenge['goalType'],
-    target: row.target as number,
-    startDate: row.start_date as string,
-    endDate: row.end_date as string,
-    notes: (row.notes as string) ?? undefined,
-    relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
-}
-
-export function readingChallengeToRow(
-  input: Partial<ReadingChallenge>,
-  userId: string,
-): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.name !== undefined) row.name = input.name
-  if (input.goalType !== undefined) row.goal_type = input.goalType
-  if (input.target !== undefined) row.target = input.target
-  if (input.startDate !== undefined) row.start_date = input.startDate
-  if (input.endDate !== undefined) row.end_date = input.endDate
-  if (input.notes !== undefined) row.notes = input.notes
-  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  return row
-}
-
-// --- Phase 3: Watching ---
+// --- Watching (movies & TV) ---
 
 export function watchableFromRow(row: Record<string, unknown>): Watchable {
   return {
@@ -385,9 +158,8 @@ export function watchableFromRow(row: Record<string, unknown>): Watchable {
     status: row.status as Watchable['status'],
     rating: (row.rating as number) ?? undefined,
     notes: (row.notes as string) ?? undefined,
+    tags: (row.tags as string[]) ?? [],
     relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    relatedConstellationIds: (row.related_constellation_ids as string[]) ?? [],
-    linkedStarId: (row.linked_star_id as string) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     completedAt: (row.completed_at as string) ?? undefined,
@@ -403,10 +175,8 @@ export function watchableToRow(input: Partial<Watchable>, userId: string): Recor
   if (input.status !== undefined) row.status = input.status
   if (input.rating !== undefined) row.rating = input.rating
   if (input.notes !== undefined) row.notes = input.notes
+  if (input.tags !== undefined) row.tags = input.tags
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.relatedConstellationIds !== undefined)
-    row.related_constellation_ids = input.relatedConstellationIds
-  if (input.linkedStarId !== undefined) row.linked_star_id = input.linkedStarId
   if (input.completedAt !== undefined) row.completed_at = input.completedAt
   return row
 }
@@ -438,39 +208,6 @@ export function episodeToRow(input: Partial<Episode>, userId: string): Record<st
   return row
 }
 
-export function watchListFromRow(row: Record<string, unknown>): WatchList {
-  return {
-    id: row.id as string,
-    name: row.name as string,
-    description: (row.description as string) ?? undefined,
-    type: row.type as WatchList['type'],
-    relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    linkedStarId: (row.linked_star_id as string) ?? undefined,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
-}
-
-export function watchListToRow(input: Partial<WatchList>, userId: string): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.name !== undefined) row.name = input.name
-  if (input.description !== undefined) row.description = input.description
-  if (input.type !== undefined) row.type = input.type
-  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.linkedStarId !== undefined) row.linked_star_id = input.linkedStarId
-  return row
-}
-
-export function watchListItemFromRow(row: Record<string, unknown>): WatchListItem {
-  return {
-    id: row.id as string,
-    watchListId: row.watch_list_id as string,
-    watchableId: row.watchable_id as string,
-    sortIndex: (row.sort_index as number) ?? 0,
-    createdAt: row.created_at as string,
-  }
-}
-
 export function viewingSessionFromRow(row: Record<string, unknown>): ViewingSession {
   return {
     id: row.id as string,
@@ -499,92 +236,136 @@ export function viewingSessionToRow(
   return row
 }
 
-export function watchChallengeFromRow(row: Record<string, unknown>): WatchChallenge {
+// --- Library (books) ---
+
+export function bookFromRow(row: Record<string, unknown>): Book {
   return {
     id: row.id as string,
-    name: row.name as string,
-    target: row.target as number,
-    startDate: row.start_date as string,
-    endDate: row.end_date as string,
+    title: row.title as string,
+    author: (row.author as string) ?? undefined,
+    series: (row.series as string) ?? undefined,
+    genre: (row.genre as string) ?? undefined,
+    ownership: row.ownership as Book['ownership'],
+    format: row.format as Book['format'],
+    readStatus: row.read_status as Book['readStatus'],
+    totalPages: (row.total_pages as number) ?? undefined,
+    totalMinutes: (row.total_minutes as number) ?? undefined,
+    rating: (row.rating as number) ?? undefined,
     notes: (row.notes as string) ?? undefined,
+    tags: (row.tags as string[]) ?? [],
     relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
-}
-
-export function watchChallengeToRow(
-  input: Partial<WatchChallenge>,
-  userId: string,
-): Record<string, unknown> {
-  const row: Record<string, unknown> = { user_id: userId }
-  if (input.name !== undefined) row.name = input.name
-  if (input.target !== undefined) row.target = input.target
-  if (input.startDate !== undefined) row.start_date = input.startDate
-  if (input.endDate !== undefined) row.end_date = input.endDate
-  if (input.notes !== undefined) row.notes = input.notes
-  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  return row
-}
-
-// --- Phase 4: Learning (Goal -> Planets -> Moons) ---
-
-export function learningGoalFromRow(row: Record<string, unknown>): LearningGoal {
-  return {
-    id: row.id as string,
-    name: row.name as string,
-    description: (row.description as string) ?? undefined,
-    status: row.status as LearningGoal['status'],
-    notes: (row.notes as string) ?? undefined,
-    relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    linkedStarId: (row.linked_star_id as string) ?? undefined,
+    startedAt: (row.started_at as string) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     completedAt: (row.completed_at as string) ?? undefined,
   }
 }
 
-export function learningGoalToRow(
-  input: Partial<LearningGoal>,
-  userId: string,
-): Record<string, unknown> {
+export function bookToRow(input: Partial<Book>, userId: string): Record<string, unknown> {
   const row: Record<string, unknown> = { user_id: userId }
-  if (input.name !== undefined) row.name = input.name
-  if (input.description !== undefined) row.description = input.description
-  if (input.status !== undefined) row.status = input.status
+  if (input.title !== undefined) row.title = input.title
+  if (input.author !== undefined) row.author = input.author
+  if (input.series !== undefined) row.series = input.series
+  if (input.genre !== undefined) row.genre = input.genre
+  if (input.ownership !== undefined) row.ownership = input.ownership
+  if (input.format !== undefined) row.format = input.format
+  if (input.readStatus !== undefined) row.read_status = input.readStatus
+  if (input.totalPages !== undefined) row.total_pages = input.totalPages
+  if (input.totalMinutes !== undefined) row.total_minutes = input.totalMinutes
+  if (input.rating !== undefined) row.rating = input.rating
   if (input.notes !== undefined) row.notes = input.notes
+  if (input.tags !== undefined) row.tags = input.tags
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.linkedStarId !== undefined) row.linked_star_id = input.linkedStarId
+  if (input.startedAt !== undefined) row.started_at = input.startedAt
   if (input.completedAt !== undefined) row.completed_at = input.completedAt
   return row
 }
 
-export function learningItemFromRow(row: Record<string, unknown>): LearningItem {
+export function readingLogFromRow(row: Record<string, unknown>): ReadingLog {
   return {
     id: row.id as string,
-    goalId: row.goal_id as string,
-    parentItemId: (row.parent_item_id as string) ?? undefined,
+    bookId: row.book_id as string,
+    date: row.date as string,
+    currentPage: (row.current_page as number) ?? undefined,
+    currentTimeMinutes: (row.current_time_minutes as number) ?? undefined,
+    percentComplete: (row.percent_complete as number) ?? undefined,
+    minutesSpentReading: (row.minutes_spent_reading as number) ?? undefined,
+    notes: (row.notes as string) ?? undefined,
+    createdAt: row.created_at as string,
+  }
+}
+
+export function readingLogToRow(input: Partial<ReadingLog>, userId: string): Record<string, unknown> {
+  const row: Record<string, unknown> = { user_id: userId }
+  if (input.bookId !== undefined) row.book_id = input.bookId
+  if (input.date !== undefined) row.date = input.date
+  if (input.currentPage !== undefined) row.current_page = input.currentPage
+  if (input.currentTimeMinutes !== undefined) row.current_time_minutes = input.currentTimeMinutes
+  if (input.percentComplete !== undefined) row.percent_complete = input.percentComplete
+  if (input.minutesSpentReading !== undefined) row.minutes_spent_reading = input.minutesSpentReading
+  if (input.notes !== undefined) row.notes = input.notes
+  return row
+}
+
+// --- Bucket List ---
+
+export function bucketListItemFromRow(row: Record<string, unknown>): BucketListItem {
+  return {
+    id: row.id as string,
+    category: row.category as BucketListItem['category'],
     name: row.name as string,
     notes: (row.notes as string) ?? undefined,
-    status: row.status as LearningItem['status'],
+    status: row.status as BucketListItem['status'],
+    tags: (row.tags as string[]) ?? [],
+    relatedStarIds: (row.related_star_ids as string[]) ?? [],
+    bookId: (row.book_id as string) ?? undefined,
+    watchableId: (row.watchable_id as string) ?? undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    completedAt: (row.completed_at as string) ?? undefined,
+  }
+}
+
+export function bucketListItemToRow(
+  input: Partial<BucketListItem>,
+  userId: string,
+): Record<string, unknown> {
+  const row: Record<string, unknown> = { user_id: userId }
+  if (input.category !== undefined) row.category = input.category
+  if (input.name !== undefined) row.name = input.name
+  if (input.notes !== undefined) row.notes = input.notes
+  if (input.status !== undefined) row.status = input.status
+  if (input.tags !== undefined) row.tags = input.tags
+  if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
+  if (input.bookId !== undefined) row.book_id = input.bookId
+  if (input.watchableId !== undefined) row.watchable_id = input.watchableId
+  if (input.completedAt !== undefined) row.completed_at = input.completedAt
+  return row
+}
+
+// --- Chart configs ---
+
+export function chartConfigFromRow(row: Record<string, unknown>): ChartConfig {
+  return {
+    id: row.id as string,
+    viewName: row.view_name as string,
+    title: row.title as string,
+    chartType: row.chart_type as ChartConfig['chartType'],
+    xAxis: row.x_axis as ChartConfig['xAxis'],
+    yAxis: row.y_axis as ChartConfig['yAxis'],
     sortIndex: (row.sort_index as number) ?? 0,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
-    completedAt: (row.completed_at as string) ?? undefined,
   }
 }
 
-export function learningItemToRow(
-  input: Partial<LearningItem>,
-  userId: string,
-): Record<string, unknown> {
+export function chartConfigToRow(input: Partial<ChartConfig>, userId: string): Record<string, unknown> {
   const row: Record<string, unknown> = { user_id: userId }
-  if (input.goalId !== undefined) row.goal_id = input.goalId
-  if (input.parentItemId !== undefined) row.parent_item_id = input.parentItemId
-  if (input.name !== undefined) row.name = input.name
-  if (input.notes !== undefined) row.notes = input.notes
-  if (input.status !== undefined) row.status = input.status
+  if (input.viewName !== undefined) row.view_name = input.viewName
+  if (input.title !== undefined) row.title = input.title
+  if (input.chartType !== undefined) row.chart_type = input.chartType
+  if (input.xAxis !== undefined) row.x_axis = input.xAxis
+  if (input.yAxis !== undefined) row.y_axis = input.yAxis
   if (input.sortIndex !== undefined) row.sort_index = input.sortIndex
-  if (input.completedAt !== undefined) row.completed_at = input.completedAt
   return row
 }

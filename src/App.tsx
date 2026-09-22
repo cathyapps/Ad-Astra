@@ -2,22 +2,18 @@ import { useState } from 'react'
 import { useAdAstra } from '@/hooks/useAdAstra'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { Universe } from '@/features/universe/Universe'
-import { Travel } from '@/features/travel/Travel'
-import { Reading } from '@/features/reading/Reading'
-import { Watching } from '@/features/watching/Watching'
-import { Learning } from '@/features/learning/Learning'
+import { BucketList } from '@/features/bucketlist/BucketList'
+import { Library } from '@/features/library/Library'
 import { CapacityWarningModal } from '@/features/stars/CapacityWarningModal'
 import { useAuthState } from '@/features/auth/AuthContext'
 
-type Tab = 'dashboard' | 'universe' | 'travel' | 'reading' | 'watching' | 'learning'
+type Tab = 'dashboard' | 'universe' | 'bucketlist' | 'library'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'universe', label: 'Universe' },
-  { id: 'travel', label: 'Travel' },
-  { id: 'reading', label: 'Reading' },
-  { id: 'watching', label: 'Watching' },
-  { id: 'learning', label: 'Learning' },
+  { id: 'bucketlist', label: 'Bucket List' },
+  { id: 'library', label: 'Library' },
 ]
 
 export default function App() {
@@ -75,86 +71,38 @@ export default function App() {
             stars={adAstra.stars}
             tasks={adAstra.tasks}
             constellations={adAstra.constellations}
+            books={adAstra.books}
+            bucketListItems={adAstra.bucketListItems}
             onUpdateTask={adAstra.updateTask}
+            onUpdateBook={adAstra.updateBook}
+            onCreateReadingLog={adAstra.createReadingLog}
+            onUpdateBucketListItem={adAstra.updateBucketListItem}
+            onOpenLibrary={() => setTab('library')}
+            onOpenBucketList={() => setTab('bucketlist')}
           />
         )}
         {tab === 'universe' && (
           <Universe
             stars={adAstra.stars}
             tasks={adAstra.tasks}
+            constellations={adAstra.constellations}
+            books={adAstra.books}
+            bucketListItems={adAstra.bucketListItems}
             onCreateStar={adAstra.createStar}
             onUpdateStar={adAstra.updateStar}
+            onDeleteStar={adAstra.deleteStar}
             onMoveStar={adAstra.moveStar}
             onCreateTask={adAstra.createTask}
             onUpdateTask={adAstra.updateTask}
-          />
-        )}
-        {tab === 'travel' && (
-          <Travel
-            trips={adAstra.trips}
-            tripItems={adAstra.tripItems}
-            onCreateTrip={adAstra.createTrip}
-            onUpdateTrip={adAstra.updateTrip}
-            onDeleteTrip={adAstra.deleteTrip}
-            onCreateTripItem={adAstra.createTripItem}
-            onUpdateTripItem={adAstra.updateTripItem}
-            onDeleteTripItem={adAstra.deleteTripItem}
-          />
-        )}
-        {tab === 'reading' && (
-          <Reading
-            stars={adAstra.stars}
-            constellations={adAstra.constellations}
-            books={adAstra.books}
-            bookLists={adAstra.bookLists}
-            bookListItems={adAstra.bookListItems}
-            readingSessions={adAstra.readingSessions}
-            readingChallenges={adAstra.readingChallenges}
-            onCreateBook={adAstra.createBook}
+            onCreateConstellation={adAstra.createConstellation}
+            onUpdateConstellation={adAstra.updateConstellation}
+            onDeleteConstellation={adAstra.deleteConstellation}
             onUpdateBook={adAstra.updateBook}
-            onDeleteBook={adAstra.deleteBook}
-            onCreateBookList={adAstra.createBookList}
-            onToggleBookInList={adAstra.toggleBookInList}
-            onCreateReadingSession={adAstra.createReadingSession}
-            onCreateReadingChallenge={adAstra.createReadingChallenge}
-            onDeleteReadingChallenge={adAstra.deleteReadingChallenge}
+            onUpdateBucketListItem={adAstra.updateBucketListItem}
           />
         )}
-        {tab === 'watching' && (
-          <Watching
-            stars={adAstra.stars}
-            constellations={adAstra.constellations}
-            watchables={adAstra.watchables}
-            episodes={adAstra.episodes}
-            watchLists={adAstra.watchLists}
-            watchListItems={adAstra.watchListItems}
-            viewingSessions={adAstra.viewingSessions}
-            watchChallenges={adAstra.watchChallenges}
-            onCreateWatchable={adAstra.createWatchable}
-            onUpdateWatchable={adAstra.updateWatchable}
-            onDeleteWatchable={adAstra.deleteWatchable}
-            onCreateEpisode={adAstra.createEpisode}
-            onUpdateEpisode={adAstra.updateEpisode}
-            onDeleteEpisode={adAstra.deleteEpisode}
-            onCreateWatchList={adAstra.createWatchList}
-            onToggleWatchableInList={adAstra.toggleWatchableInList}
-            onCreateViewingSession={adAstra.createViewingSession}
-            onCreateWatchChallenge={adAstra.createWatchChallenge}
-            onDeleteWatchChallenge={adAstra.deleteWatchChallenge}
-          />
-        )}
-        {tab === 'learning' && (
-          <Learning
-            goals={adAstra.learningGoals}
-            learningItems={adAstra.learningItems}
-            onCreateGoal={adAstra.createLearningGoal}
-            onUpdateGoal={adAstra.updateLearningGoal}
-            onDeleteGoal={adAstra.deleteLearningGoal}
-            onCreateItem={adAstra.createLearningItem}
-            onUpdateItem={adAstra.updateLearningItem}
-            onDeleteItem={adAstra.deleteLearningItem}
-          />
-        )}
+        {tab === 'bucketlist' && <BucketList />}
+        {tab === 'library' && <Library />}
       </main>
 
       {adAstra.capacityPrompt && (

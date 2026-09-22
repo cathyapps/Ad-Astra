@@ -36,13 +36,13 @@ export function CapacityWarningModal({ message, orbit, onAbort, onOverride, onRe
               className="border border-hairline rounded-lg px-3 py-2.5 text-sm text-left text-moon hover:bg-card-hover transition-colors"
               onClick={() => setReplacing(true)}
             >
-              Replace — move one existing Star back to Planning
+              Replace — move one existing Star back to On the Horizon
             </button>
           </div>
         ) : (
           <div className="space-y-3">
             <label className="text-sm block text-moon">
-              Move which Star back to Planning?
+              Move which Star back to On the Horizon?
               <select
                 className="mt-1 w-full border border-hairline bg-night rounded-lg px-2 py-1.5 text-sm text-moon"
                 value={chosen}

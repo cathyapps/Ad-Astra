@@ -1,6 +1,8 @@
--- Ad Astra — Phase 1 (Core Universe) schema
--- Run against a Supabase Postgres project once credentials exist.
--- Mirrors src/types/index.ts; keep the two in sync by hand for now.
+-- Ad Astra — Core Universe (Stars, Constellations, Tasks, Settings)
+-- Mirrors src/types/index.ts. This is the foundation every other table
+-- builds on. Consolidated as of the Phase 6 redesign: Someday -> On the
+-- Horizon -> Current Orbit -> Completed is the whole lifecycle (no
+-- separate Planning or Archived stage — see src/lib/starLifecycle.ts).
 
 create extension if not exists "pgcrypto";
 
@@ -11,7 +13,7 @@ create table if not exists stars (
   description text,
   category text,
   stage text not null default 'someday'
-    check (stage in ('someday','on_the_horizon','planning','current_orbit','completed','archived')),
+    check (stage in ('someday','on_the_horizon','current_orbit','completed')),
   tags text[] not null default '{}',
 
   desired_timeframe text,
@@ -36,8 +38,7 @@ create table if not exists stars (
   related_star_ids uuid[] not null default '{}',
 
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  archived_at timestamptz
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists constellations (
@@ -56,6 +57,8 @@ create table if not exists constellations (
   updated_at timestamptz not null default now()
 );
 
+-- A Star's own free-form Planets & Moons: a top-level task (no
+-- parent_task_id) is a Planet; anything nested under one is a Moon.
 create table if not exists tasks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -70,8 +73,7 @@ create table if not exists tasks (
   dependency_task_ids uuid[] not null default '{}',
   notes text,
 
-  -- Recommendation-engine context tags (added beyond spec §7 — see
-  -- src/types/index.ts comment on Task for why).
+  -- Recommendation-engine context tags.
   activity_type text,
   suitable_locations text[],
   suitable_devices text[],
@@ -85,14 +87,15 @@ create table if not exists tasks (
 
 create table if not exists app_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  current_orbit_limit int not null default 5
+  current_orbit_limit int not null default 5,
+  -- Last-used timeframe on the Library > Metrics view, remembered across sessions.
+  reading_metrics_timeframe text not null default '30d'
 );
 
 create index if not exists stars_user_stage_idx on stars (user_id, stage);
 create index if not exists tasks_user_star_idx on tasks (user_id, star_id);
 create index if not exists tasks_parent_idx on tasks (parent_task_id);
 
--- Row Level Security: every table is scoped to the owning user.
 alter table stars enable row level security;
 alter table constellations enable row level security;
 alter table tasks enable row level security;

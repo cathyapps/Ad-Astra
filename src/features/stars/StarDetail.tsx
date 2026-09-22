@@ -1,25 +1,38 @@
 import type { Star, StarStage, Task } from '@/types'
+import type { Book } from '@/types/library'
+import type { BucketListItem } from '@/types/bucketList'
 import { ALLOWED_STAGES } from './allowedStages'
 import { StageBadge, STAGE_LABELS } from './stageLabels'
 import { TaskList } from '@/features/tasks/TaskList'
+import { StarLinkedItems } from './StarLinkedItems'
 
 interface Props {
   star: Star
   tasks: Task[]
+  books: Book[]
+  bucketListItems: BucketListItem[]
   onMoveStage: (to: StarStage) => void
   onUpdate: (patch: Partial<Star>) => void
   onCreateTask: (input: Partial<Task> & { starId: string; name: string }) => void
   onUpdateTask: (id: string, patch: Partial<Task>) => void
+  onUpdateBook: (id: string, patch: Partial<Book>) => void
+  onUpdateBucketListItem: (id: string, patch: Partial<BucketListItem>) => void
+  onDelete: () => void
   onClose: () => void
 }
 
 export function StarDetail({
   star,
   tasks,
+  books,
+  bucketListItems,
   onMoveStage,
   onUpdate,
   onCreateTask,
   onUpdateTask,
+  onUpdateBook,
+  onUpdateBucketListItem,
+  onDelete,
   onClose,
 }: Props) {
   const options = ALLOWED_STAGES[star.stage]
@@ -78,6 +91,21 @@ export function StarDetail({
         </div>
         <TaskList starId={star.id} tasks={starTasks} onCreate={onCreateTask} onUpdate={onUpdateTask} />
       </div>
+
+      <div>
+        <h3 className="text-sm font-medium text-moon mb-2">Linked Items</h3>
+        <StarLinkedItems
+          star={star}
+          books={books}
+          bucketListItems={bucketListItems}
+          onUpdateBook={onUpdateBook}
+          onUpdateBucketListItem={onUpdateBucketListItem}
+        />
+      </div>
+
+      <button className="text-xs text-moon-dim hover:text-red-400 transition-colors" onClick={onDelete}>
+        Delete star
+      </button>
     </div>
   )
 }

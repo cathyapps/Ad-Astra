@@ -10,7 +10,7 @@ back-and-forth.
 1. Create a project at supabase.com (or via the Supabase connector in this
    chat, if you connect it).
 2. In the SQL editor, run the migrations in `supabase/migrations/` in
-   order (`0001` through `0008`). This creates all tables and turns on
+   order (`0001` through `0003`). This creates all tables and turns on
    row-level security scoped to `auth.uid()`.
 3. Email/password auth (Authentication → Providers → Email) is on by
    default — no extra config needed for password sign-in. You can create

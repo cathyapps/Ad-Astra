@@ -1,22 +1,16 @@
 import type { AppSettings, Constellation, Star, Task } from '@/types'
-import type { Trip, TripItem } from '@/types/travel'
-import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
-import type {
-  Episode,
-  ViewingSession,
-  WatchChallenge,
-  Watchable,
-  WatchList,
-  WatchListItem,
-} from '@/types/watching'
-import type { LearningGoal, LearningItem } from '@/types/learning'
+import type { Book, ReadingLog } from '@/types/library'
+import type { BucketListItem } from '@/types/bucketList'
+import type { ChartConfig } from '@/types/charts'
+import type { Episode, ViewingSession, Watchable } from '@/types/watching'
 
-// Every screen and hook talks to this interface, never to localStorage or
-// Supabase directly. Phase 1 ships `LocalStore` (localStorage-backed, works
-// offline, zero setup). When Supabase credentials are available, implement
-// the same interface against supabase-js and swap the single export in
-// `db/index.ts` — nothing else in the app changes.
+// The whole app talks to storage through this interface — LocalStore
+// (localStorage, no login) and SupabaseStore (multi-device, behind auth)
+// both implement it identically, so every component and hook is
+// storage-agnostic. Adding a table means adding it here and to both
+// implementations, nothing else.
 export interface AdAstraStore {
+  // --- Core Universe: Stars, Constellations, Tasks (Planets & Moons), Settings ---
   listStars(): Promise<Star[]>
   getStar(id: string): Promise<Star | undefined>
   createStar(input: Partial<Star> & { name: string }): Promise<Star>
@@ -37,50 +31,7 @@ export interface AdAstraStore {
   getSettings(): Promise<AppSettings>
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>
 
-  // Phase 2 — Travel (spec §17), restructured: no standalone destinations
-  // list. A trip's places are its own top-level TripItems (Planets).
-  listTrips(): Promise<Trip[]>
-  getTrip(id: string): Promise<Trip | undefined>
-  createTrip(input: Partial<Trip> & { name: string }): Promise<Trip>
-  updateTrip(id: string, patch: Partial<Trip>): Promise<Trip>
-  deleteTrip(id: string): Promise<void>
-
-  listTripItems(tripId?: string): Promise<TripItem[]>
-  createTripItem(input: Partial<TripItem> & { tripId: string; name: string }): Promise<TripItem>
-  updateTripItem(id: string, patch: Partial<TripItem>): Promise<TripItem>
-  deleteTripItem(id: string): Promise<void>
-
-  // Phase 3 — Reading (spec §19)
-  listBooks(): Promise<Book[]>
-  getBook(id: string): Promise<Book | undefined>
-  createBook(input: Partial<Book> & { title: string }): Promise<Book>
-  updateBook(id: string, patch: Partial<Book>): Promise<Book>
-  deleteBook(id: string): Promise<void>
-
-  listBookLists(): Promise<BookList[]>
-  createBookList(input: Partial<BookList> & { name: string }): Promise<BookList>
-  updateBookList(id: string, patch: Partial<BookList>): Promise<BookList>
-  deleteBookList(id: string): Promise<void>
-
-  listBookListItems(bookListId?: string): Promise<BookListItem[]>
-  addBookToList(bookListId: string, bookId: string): Promise<BookListItem>
-  removeBookFromList(bookListId: string, bookId: string): Promise<void>
-
-  listReadingSessions(bookId?: string): Promise<ReadingSession[]>
-  createReadingSession(
-    input: Partial<ReadingSession> & { bookId: string },
-  ): Promise<ReadingSession>
-  updateReadingSession(id: string, patch: Partial<ReadingSession>): Promise<ReadingSession>
-  deleteReadingSession(id: string): Promise<void>
-
-  listReadingChallenges(): Promise<ReadingChallenge[]>
-  createReadingChallenge(
-    input: Partial<ReadingChallenge> & { name: string },
-  ): Promise<ReadingChallenge>
-  updateReadingChallenge(id: string, patch: Partial<ReadingChallenge>): Promise<ReadingChallenge>
-  deleteReadingChallenge(id: string): Promise<void>
-
-  // Phase 3 — Watching (movies & TV, same framework as Reading)
+  // --- Watching (movies & TV) ---
   listWatchables(): Promise<Watchable[]>
   getWatchable(id: string): Promise<Watchable | undefined>
   createWatchable(input: Partial<Watchable> & { title: string }): Promise<Watchable>
@@ -92,15 +43,6 @@ export interface AdAstraStore {
   updateEpisode(id: string, patch: Partial<Episode>): Promise<Episode>
   deleteEpisode(id: string): Promise<void>
 
-  listWatchLists(): Promise<WatchList[]>
-  createWatchList(input: Partial<WatchList> & { name: string }): Promise<WatchList>
-  updateWatchList(id: string, patch: Partial<WatchList>): Promise<WatchList>
-  deleteWatchList(id: string): Promise<void>
-
-  listWatchListItems(watchListId?: string): Promise<WatchListItem[]>
-  addWatchableToList(watchListId: string, watchableId: string): Promise<WatchListItem>
-  removeWatchableFromList(watchListId: string, watchableId: string): Promise<void>
-
   listViewingSessions(watchableId?: string): Promise<ViewingSession[]>
   createViewingSession(
     input: Partial<ViewingSession> & { watchableId: string },
@@ -108,23 +50,37 @@ export interface AdAstraStore {
   updateViewingSession(id: string, patch: Partial<ViewingSession>): Promise<ViewingSession>
   deleteViewingSession(id: string): Promise<void>
 
-  listWatchChallenges(): Promise<WatchChallenge[]>
-  createWatchChallenge(input: Partial<WatchChallenge> & { name: string }): Promise<WatchChallenge>
-  updateWatchChallenge(id: string, patch: Partial<WatchChallenge>): Promise<WatchChallenge>
-  deleteWatchChallenge(id: string): Promise<void>
+  // --- Library (books you own, have read, or want to read) ---
+  listBooks(): Promise<Book[]>
+  getBook(id: string): Promise<Book | undefined>
+  createBook(input: Partial<Book> & { title: string }): Promise<Book>
+  updateBook(id: string, patch: Partial<Book>): Promise<Book>
+  deleteBook(id: string): Promise<void>
 
-  // Phase 4 — Learning: free-form goals with free-entry sub-goals/tasks
-  // (Planets & Moons) nested under them. No metrics, just status.
-  listLearningGoals(): Promise<LearningGoal[]>
-  getLearningGoal(id: string): Promise<LearningGoal | undefined>
-  createLearningGoal(input: Partial<LearningGoal> & { name: string }): Promise<LearningGoal>
-  updateLearningGoal(id: string, patch: Partial<LearningGoal>): Promise<LearningGoal>
-  deleteLearningGoal(id: string): Promise<void>
+  listReadingLogs(bookId?: string): Promise<ReadingLog[]>
+  createReadingLog(input: Partial<ReadingLog> & { bookId: string }): Promise<ReadingLog>
+  updateReadingLog(id: string, patch: Partial<ReadingLog>): Promise<ReadingLog>
+  deleteReadingLog(id: string): Promise<void>
 
-  listLearningItems(goalId?: string): Promise<LearningItem[]>
-  createLearningItem(
-    input: Partial<LearningItem> & { goalId: string; name: string },
-  ): Promise<LearningItem>
-  updateLearningItem(id: string, patch: Partial<LearningItem>): Promise<LearningItem>
-  deleteLearningItem(id: string): Promise<void>
+  // --- Bucket List (travel destinations / books / shows / movies) ---
+  listBucketListItems(): Promise<BucketListItem[]>
+  getBucketListItem(id: string): Promise<BucketListItem | undefined>
+  createBucketListItem(
+    input: Partial<BucketListItem> & { category: BucketListItem['category']; name: string },
+  ): Promise<BucketListItem>
+  updateBucketListItem(id: string, patch: Partial<BucketListItem>): Promise<BucketListItem>
+  deleteBucketListItem(id: string): Promise<void>
+
+  // --- Chart configs (dynamic reading-metrics KPI builder) ---
+  listChartConfigs(viewName?: string): Promise<ChartConfig[]>
+  createChartConfig(
+    input: Partial<ChartConfig> & {
+      title: string
+      chartType: ChartConfig['chartType']
+      xAxis: ChartConfig['xAxis']
+      yAxis: ChartConfig['yAxis']
+    },
+  ): Promise<ChartConfig>
+  updateChartConfig(id: string, patch: Partial<ChartConfig>): Promise<ChartConfig>
+  deleteChartConfig(id: string): Promise<void>
 }

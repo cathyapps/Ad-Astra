@@ -1,51 +1,31 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AppSettings, Constellation, Star, Task } from '@/types'
-import type { Trip, TripItem } from '@/types/travel'
-import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
-import type {
-  Episode,
-  ViewingSession,
-  WatchChallenge,
-  Watchable,
-  WatchList,
-  WatchListItem,
-} from '@/types/watching'
-import type { LearningGoal, LearningItem } from '@/types/learning'
+import type { Book, ReadingLog } from '@/types/library'
+import type { BucketListItem } from '@/types/bucketList'
+import type { ChartConfig } from '@/types/charts'
+import { DEFAULT_VIEW_NAME } from '@/types/charts'
+import type { Episode, ViewingSession, Watchable } from '@/types/watching'
 import type { AdAstraStore } from './types'
 import {
   bookFromRow,
-  bookListFromRow,
-  bookListItemFromRow,
-  bookListToRow,
   bookToRow,
+  bucketListItemFromRow,
+  bucketListItemToRow,
+  chartConfigFromRow,
+  chartConfigToRow,
   constellationFromRow,
   constellationToRow,
   episodeFromRow,
   episodeToRow,
-  learningGoalFromRow,
-  learningGoalToRow,
-  learningItemFromRow,
-  learningItemToRow,
-  readingChallengeFromRow,
-  readingChallengeToRow,
-  readingSessionFromRow,
-  readingSessionToRow,
+  readingLogFromRow,
+  readingLogToRow,
   settingsFromRow,
   starFromRow,
   starToRow,
   taskFromRow,
   taskToRow,
-  tripFromRow,
-  tripItemFromRow,
-  tripItemToRow,
-  tripToRow,
   viewingSessionFromRow,
   viewingSessionToRow,
-  watchChallengeFromRow,
-  watchChallengeToRow,
-  watchListFromRow,
-  watchListItemFromRow,
-  watchListToRow,
   watchableFromRow,
   watchableToRow,
 } from './supabaseMappers'
@@ -63,6 +43,8 @@ export class SupabaseStore implements AdAstraStore {
     this.client = client
     this.userId = userId
   }
+
+  // --- Core Universe: Stars, Constellations, Tasks, Settings ---
 
   async listStars(): Promise<Star[]> {
     const { data, error } = await this.client
@@ -171,9 +153,10 @@ export class SupabaseStore implements AdAstraStore {
   }
 
   async updateTask(id: string, patch: Partial<Task>): Promise<Task> {
-    const withCompletion = patch.status === 'done' && !patch.completedAt
-      ? { ...patch, completedAt: new Date().toISOString() }
-      : patch
+    const withCompletion =
+      patch.status === 'done' && !patch.completedAt
+        ? { ...patch, completedAt: new Date().toISOString() }
+        : patch
     const { data, error } = await this.client
       .from('tasks')
       .update(taskToRow(withCompletion, this.userId))
@@ -202,296 +185,16 @@ export class SupabaseStore implements AdAstraStore {
   async updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
     const current = await this.getSettings()
     const merged = { ...current, ...patch }
-    const { error } = await this.client
-      .from('app_settings')
-      .upsert({ user_id: this.userId, current_orbit_limit: merged.currentOrbitLimit })
+    const { error } = await this.client.from('app_settings').upsert({
+      user_id: this.userId,
+      current_orbit_limit: merged.currentOrbitLimit,
+      reading_metrics_timeframe: merged.readingMetricsTimeframe,
+    })
     if (error) throw error
     return merged
   }
 
-  // --- Phase 2: Travel (Trip -> Planets -> Moons) ---
-
-  async listTrips(): Promise<Trip[]> {
-    const { data, error } = await this.client
-      .from('trips')
-      .select('*')
-      .order('created_at', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map(tripFromRow)
-  }
-
-  async getTrip(id: string): Promise<Trip | undefined> {
-    const { data, error } = await this.client.from('trips').select('*').eq('id', id).maybeSingle()
-    if (error) throw error
-    return data ? tripFromRow(data) : undefined
-  }
-
-  async createTrip(input: Partial<Trip> & { name: string }): Promise<Trip> {
-    const { data, error } = await this.client
-      .from('trips')
-      .insert(tripToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    return tripFromRow(must(data, 'Trip'))
-  }
-
-  async updateTrip(id: string, patch: Partial<Trip>): Promise<Trip> {
-    const { data, error } = await this.client
-      .from('trips')
-      .update(tripToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return tripFromRow(must(data, 'Trip'))
-  }
-
-  async deleteTrip(id: string): Promise<void> {
-    // trip_items has an ON DELETE CASCADE FK to trips, so no manual cleanup needed.
-    const { error } = await this.client.from('trips').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  async listTripItems(tripId?: string): Promise<TripItem[]> {
-    let query = this.client.from('trip_items').select('*').order('sort_index', { ascending: true })
-    if (tripId) query = query.eq('trip_id', tripId)
-    const { data, error } = await query
-    if (error) throw error
-    return (data ?? []).map(tripItemFromRow)
-  }
-
-  async createTripItem(
-    input: Partial<TripItem> & { tripId: string; name: string },
-  ): Promise<TripItem> {
-    const { data, error } = await this.client
-      .from('trip_items')
-      .insert(tripItemToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    return tripItemFromRow(must(data, 'Trip item'))
-  }
-
-  async updateTripItem(id: string, patch: Partial<TripItem>): Promise<TripItem> {
-    const { data, error } = await this.client
-      .from('trip_items')
-      .update(tripItemToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return tripItemFromRow(must(data, 'Trip item'))
-  }
-
-  async deleteTripItem(id: string): Promise<void> {
-    const { error } = await this.client.from('trip_items').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  // --- Phase 3: Reading ---
-
-  async listBooks(): Promise<Book[]> {
-    const { data, error } = await this.client
-      .from('books')
-      .select('*')
-      .order('created_at', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map(bookFromRow)
-  }
-
-  async getBook(id: string): Promise<Book | undefined> {
-    const { data, error } = await this.client.from('books').select('*').eq('id', id).maybeSingle()
-    if (error) throw error
-    return data ? bookFromRow(data) : undefined
-  }
-
-  async createBook(input: Partial<Book> & { title: string }): Promise<Book> {
-    const { data, error } = await this.client
-      .from('books')
-      .insert(bookToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    return bookFromRow(must(data, 'Book'))
-  }
-
-  async updateBook(id: string, patch: Partial<Book>): Promise<Book> {
-    const { data, error } = await this.client
-      .from('books')
-      .update(bookToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return bookFromRow(must(data, 'Book'))
-  }
-
-  async deleteBook(id: string): Promise<void> {
-    // book_list_items and reading_sessions cascade via FK.
-    const { error } = await this.client.from('books').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  async listBookLists(): Promise<BookList[]> {
-    const { data, error } = await this.client
-      .from('book_lists')
-      .select('*')
-      .order('created_at', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map(bookListFromRow)
-  }
-
-  async createBookList(input: Partial<BookList> & { name: string }): Promise<BookList> {
-    const { data, error } = await this.client
-      .from('book_lists')
-      .insert(bookListToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    return bookListFromRow(must(data, 'Book list'))
-  }
-
-  async updateBookList(id: string, patch: Partial<BookList>): Promise<BookList> {
-    const { data, error } = await this.client
-      .from('book_lists')
-      .update(bookListToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return bookListFromRow(must(data, 'Book list'))
-  }
-
-  async deleteBookList(id: string): Promise<void> {
-    const { error } = await this.client.from('book_lists').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  async listBookListItems(bookListId?: string): Promise<BookListItem[]> {
-    let query = this.client.from('book_list_items').select('*').order('sort_index', { ascending: true })
-    if (bookListId) query = query.eq('book_list_id', bookListId)
-    const { data, error } = await query
-    if (error) throw error
-    return (data ?? []).map(bookListItemFromRow)
-  }
-
-  async addBookToList(bookListId: string, bookId: string): Promise<BookListItem> {
-    const existing = await this.listBookListItems(bookListId)
-    const found = existing.find((i) => i.bookId === bookId)
-    if (found) return found
-    const { data, error } = await this.client
-      .from('book_list_items')
-      .insert({
-        user_id: this.userId,
-        book_list_id: bookListId,
-        book_id: bookId,
-        sort_index: existing.length,
-      })
-      .select()
-      .single()
-    if (error) throw error
-    return bookListItemFromRow(must(data, 'Book list item'))
-  }
-
-  async removeBookFromList(bookListId: string, bookId: string): Promise<void> {
-    const { error } = await this.client
-      .from('book_list_items')
-      .delete()
-      .eq('book_list_id', bookListId)
-      .eq('book_id', bookId)
-    if (error) throw error
-  }
-
-  async listReadingSessions(bookId?: string): Promise<ReadingSession[]> {
-    let query = this.client.from('reading_sessions').select('*').order('date', { ascending: false })
-    if (bookId) query = query.eq('book_id', bookId)
-    const { data, error } = await query
-    if (error) throw error
-    return (data ?? []).map(readingSessionFromRow)
-  }
-
-  async createReadingSession(
-    input: Partial<ReadingSession> & { bookId: string },
-  ): Promise<ReadingSession> {
-    const { data, error } = await this.client
-      .from('reading_sessions')
-      .insert(readingSessionToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    const session = readingSessionFromRow(must(data, 'Reading session'))
-
-    if (session.completionStatus === 'completed' || session.completionStatus === 'dnf') {
-      await this.updateBook(session.bookId, {
-        status: session.completionStatus === 'completed' ? 'read' : 'dnf',
-        rating: session.rating,
-        completedAt: new Date().toISOString(),
-      })
-    }
-    return session
-  }
-
-  async updateReadingSession(
-    id: string,
-    patch: Partial<ReadingSession>,
-  ): Promise<ReadingSession> {
-    const { data, error } = await this.client
-      .from('reading_sessions')
-      .update(readingSessionToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return readingSessionFromRow(must(data, 'Reading session'))
-  }
-
-  async deleteReadingSession(id: string): Promise<void> {
-    const { error } = await this.client.from('reading_sessions').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  async listReadingChallenges(): Promise<ReadingChallenge[]> {
-    const { data, error } = await this.client
-      .from('reading_challenges')
-      .select('*')
-      .order('created_at', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map(readingChallengeFromRow)
-  }
-
-  async createReadingChallenge(
-    input: Partial<ReadingChallenge> & { name: string },
-  ): Promise<ReadingChallenge> {
-    const { data, error } = await this.client
-      .from('reading_challenges')
-      .insert(readingChallengeToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    return readingChallengeFromRow(must(data, 'Reading challenge'))
-  }
-
-  async updateReadingChallenge(
-    id: string,
-    patch: Partial<ReadingChallenge>,
-  ): Promise<ReadingChallenge> {
-    const { data, error } = await this.client
-      .from('reading_challenges')
-      .update(readingChallengeToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return readingChallengeFromRow(must(data, 'Reading challenge'))
-  }
-
-  async deleteReadingChallenge(id: string): Promise<void> {
-    const { error } = await this.client.from('reading_challenges').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  // --- Phase 3: Watching ---
+  // --- Watching (movies & TV) ---
 
   async listWatchables(): Promise<Watchable[]> {
     const { data, error } = await this.client
@@ -534,7 +237,6 @@ export class SupabaseStore implements AdAstraStore {
   }
 
   async deleteWatchable(id: string): Promise<void> {
-    // episodes, watch_list_items, viewing_sessions cascade via FK.
     const { error } = await this.client.from('watchables').delete().eq('id', id)
     if (error) throw error
   }
@@ -573,84 +275,8 @@ export class SupabaseStore implements AdAstraStore {
     if (error) throw error
   }
 
-  async listWatchLists(): Promise<WatchList[]> {
-    const { data, error } = await this.client
-      .from('watch_lists')
-      .select('*')
-      .order('created_at', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map(watchListFromRow)
-  }
-
-  async createWatchList(input: Partial<WatchList> & { name: string }): Promise<WatchList> {
-    const { data, error } = await this.client
-      .from('watch_lists')
-      .insert(watchListToRow(input, this.userId))
-      .select()
-      .single()
-    if (error) throw error
-    return watchListFromRow(must(data, 'Watch list'))
-  }
-
-  async updateWatchList(id: string, patch: Partial<WatchList>): Promise<WatchList> {
-    const { data, error } = await this.client
-      .from('watch_lists')
-      .update(watchListToRow(patch, this.userId))
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return watchListFromRow(must(data, 'Watch list'))
-  }
-
-  async deleteWatchList(id: string): Promise<void> {
-    const { error } = await this.client.from('watch_lists').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  async listWatchListItems(watchListId?: string): Promise<WatchListItem[]> {
-    let query = this.client
-      .from('watch_list_items')
-      .select('*')
-      .order('sort_index', { ascending: true })
-    if (watchListId) query = query.eq('watch_list_id', watchListId)
-    const { data, error } = await query
-    if (error) throw error
-    return (data ?? []).map(watchListItemFromRow)
-  }
-
-  async addWatchableToList(watchListId: string, watchableId: string): Promise<WatchListItem> {
-    const existing = await this.listWatchListItems(watchListId)
-    const found = existing.find((i) => i.watchableId === watchableId)
-    if (found) return found
-    const { data, error } = await this.client
-      .from('watch_list_items')
-      .insert({
-        user_id: this.userId,
-        watch_list_id: watchListId,
-        watchable_id: watchableId,
-        sort_index: existing.length,
-      })
-      .select()
-      .single()
-    if (error) throw error
-    return watchListItemFromRow(must(data, 'Watch list item'))
-  }
-
-  async removeWatchableFromList(watchListId: string, watchableId: string): Promise<void> {
-    const { error } = await this.client
-      .from('watch_list_items')
-      .delete()
-      .eq('watch_list_id', watchListId)
-      .eq('watchable_id', watchableId)
-    if (error) throw error
-  }
-
   async listViewingSessions(watchableId?: string): Promise<ViewingSession[]> {
-    let query = this.client
-      .from('viewing_sessions')
-      .select('*')
-      .order('date', { ascending: false })
+    let query = this.client.from('viewing_sessions').select('*').order('date', { ascending: true })
     if (watchableId) query = query.eq('watchable_id', watchableId)
     const { data, error } = await query
     if (error) throw error
@@ -671,7 +297,7 @@ export class SupabaseStore implements AdAstraStore {
     if (session.completionStatus === 'completed' || session.completionStatus === 'dnf') {
       await this.updateWatchable(session.watchableId, {
         status: session.completionStatus === 'completed' ? 'watched' : 'dnf',
-        rating: session.rating,
+        rating: session.rating ?? (await this.getWatchable(session.watchableId))?.rating,
         completedAt: new Date().toISOString(),
       })
     }
@@ -697,131 +323,179 @@ export class SupabaseStore implements AdAstraStore {
     if (error) throw error
   }
 
-  async listWatchChallenges(): Promise<WatchChallenge[]> {
+  // --- Library (books) ---
+
+  async listBooks(): Promise<Book[]> {
     const { data, error } = await this.client
-      .from('watch_challenges')
+      .from('books')
       .select('*')
       .order('created_at', { ascending: true })
     if (error) throw error
-    return (data ?? []).map(watchChallengeFromRow)
+    return (data ?? []).map(bookFromRow)
   }
 
-  async createWatchChallenge(
-    input: Partial<WatchChallenge> & { name: string },
-  ): Promise<WatchChallenge> {
+  async getBook(id: string): Promise<Book | undefined> {
+    const { data, error } = await this.client.from('books').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data ? bookFromRow(data) : undefined
+  }
+
+  async createBook(input: Partial<Book> & { title: string }): Promise<Book> {
     const { data, error } = await this.client
-      .from('watch_challenges')
-      .insert(watchChallengeToRow(input, this.userId))
+      .from('books')
+      .insert(bookToRow(input, this.userId))
       .select()
       .single()
     if (error) throw error
-    return watchChallengeFromRow(must(data, 'Watch challenge'))
+    return bookFromRow(must(data, 'Book'))
   }
 
-  async updateWatchChallenge(
-    id: string,
-    patch: Partial<WatchChallenge>,
-  ): Promise<WatchChallenge> {
+  async updateBook(id: string, patch: Partial<Book>): Promise<Book> {
     const { data, error } = await this.client
-      .from('watch_challenges')
-      .update(watchChallengeToRow(patch, this.userId))
+      .from('books')
+      .update(bookToRow(patch, this.userId))
       .eq('id', id)
       .select()
       .single()
     if (error) throw error
-    return watchChallengeFromRow(must(data, 'Watch challenge'))
+    return bookFromRow(must(data, 'Book'))
   }
 
-  async deleteWatchChallenge(id: string): Promise<void> {
-    const { error } = await this.client.from('watch_challenges').delete().eq('id', id)
+  async deleteBook(id: string): Promise<void> {
+    // reading_logs has an ON DELETE CASCADE FK to books, so no manual
+    // cleanup needed.
+    const { error } = await this.client.from('books').delete().eq('id', id)
     if (error) throw error
   }
 
-  // --- Phase 4: Learning (Goal -> Planets -> Moons) ---
+  async listReadingLogs(bookId?: string): Promise<ReadingLog[]> {
+    let query = this.client.from('reading_logs').select('*').order('date', { ascending: true })
+    if (bookId) query = query.eq('book_id', bookId)
+    const { data, error } = await query
+    if (error) throw error
+    return (data ?? []).map(readingLogFromRow)
+  }
 
-  async listLearningGoals(): Promise<LearningGoal[]> {
+  async createReadingLog(input: Partial<ReadingLog> & { bookId: string }): Promise<ReadingLog> {
     const { data, error } = await this.client
-      .from('learning_goals')
+      .from('reading_logs')
+      .insert(readingLogToRow(input, this.userId))
+      .select()
+      .single()
+    if (error) throw error
+    return readingLogFromRow(must(data, 'Reading log'))
+  }
+
+  async updateReadingLog(id: string, patch: Partial<ReadingLog>): Promise<ReadingLog> {
+    const { data, error } = await this.client
+      .from('reading_logs')
+      .update(readingLogToRow(patch, this.userId))
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return readingLogFromRow(must(data, 'Reading log'))
+  }
+
+  async deleteReadingLog(id: string): Promise<void> {
+    const { error } = await this.client.from('reading_logs').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  // --- Bucket List ---
+
+  async listBucketListItems(): Promise<BucketListItem[]> {
+    const { data, error } = await this.client
+      .from('bucket_list_items')
       .select('*')
       .order('created_at', { ascending: true })
     if (error) throw error
-    return (data ?? []).map(learningGoalFromRow)
+    return (data ?? []).map(bucketListItemFromRow)
   }
 
-  async getLearningGoal(id: string): Promise<LearningGoal | undefined> {
+  async getBucketListItem(id: string): Promise<BucketListItem | undefined> {
     const { data, error } = await this.client
-      .from('learning_goals')
+      .from('bucket_list_items')
       .select('*')
       .eq('id', id)
       .maybeSingle()
     if (error) throw error
-    return data ? learningGoalFromRow(data) : undefined
+    return data ? bucketListItemFromRow(data) : undefined
   }
 
-  async createLearningGoal(input: Partial<LearningGoal> & { name: string }): Promise<LearningGoal> {
+  async createBucketListItem(
+    input: Partial<BucketListItem> & { category: BucketListItem['category']; name: string },
+  ): Promise<BucketListItem> {
     const { data, error } = await this.client
-      .from('learning_goals')
-      .insert(learningGoalToRow(input, this.userId))
+      .from('bucket_list_items')
+      .insert(bucketListItemToRow(input, this.userId))
       .select()
       .single()
     if (error) throw error
-    return learningGoalFromRow(must(data, 'Learning goal'))
+    return bucketListItemFromRow(must(data, 'Bucket list item'))
   }
 
-  async updateLearningGoal(id: string, patch: Partial<LearningGoal>): Promise<LearningGoal> {
+  async updateBucketListItem(
+    id: string,
+    patch: Partial<BucketListItem>,
+  ): Promise<BucketListItem> {
     const { data, error } = await this.client
-      .from('learning_goals')
-      .update(learningGoalToRow(patch, this.userId))
+      .from('bucket_list_items')
+      .update(bucketListItemToRow(patch, this.userId))
       .eq('id', id)
       .select()
       .single()
     if (error) throw error
-    return learningGoalFromRow(must(data, 'Learning goal'))
+    return bucketListItemFromRow(must(data, 'Bucket list item'))
   }
 
-  async deleteLearningGoal(id: string): Promise<void> {
-    // learning_items has an ON DELETE CASCADE FK to learning_goals, so no
-    // manual cleanup needed.
-    const { error } = await this.client.from('learning_goals').delete().eq('id', id)
+  async deleteBucketListItem(id: string): Promise<void> {
+    const { error } = await this.client.from('bucket_list_items').delete().eq('id', id)
     if (error) throw error
   }
 
-  async listLearningItems(goalId?: string): Promise<LearningItem[]> {
-    let query = this.client
-      .from('learning_items')
+  // --- Chart configs ---
+
+  async listChartConfigs(viewName: string = DEFAULT_VIEW_NAME): Promise<ChartConfig[]> {
+    const { data, error } = await this.client
+      .from('chart_configs')
       .select('*')
+      .eq('view_name', viewName)
       .order('sort_index', { ascending: true })
-    if (goalId) query = query.eq('goal_id', goalId)
-    const { data, error } = await query
     if (error) throw error
-    return (data ?? []).map(learningItemFromRow)
+    return (data ?? []).map(chartConfigFromRow)
   }
 
-  async createLearningItem(
-    input: Partial<LearningItem> & { goalId: string; name: string },
-  ): Promise<LearningItem> {
+  async createChartConfig(
+    input: Partial<ChartConfig> & {
+      title: string
+      chartType: ChartConfig['chartType']
+      xAxis: ChartConfig['xAxis']
+      yAxis: ChartConfig['yAxis']
+    },
+  ): Promise<ChartConfig> {
     const { data, error } = await this.client
-      .from('learning_items')
-      .insert(learningItemToRow(input, this.userId))
+      .from('chart_configs')
+      .insert(chartConfigToRow({ viewName: DEFAULT_VIEW_NAME, ...input }, this.userId))
       .select()
       .single()
     if (error) throw error
-    return learningItemFromRow(must(data, 'Learning item'))
+    return chartConfigFromRow(must(data, 'Chart config'))
   }
 
-  async updateLearningItem(id: string, patch: Partial<LearningItem>): Promise<LearningItem> {
+  async updateChartConfig(id: string, patch: Partial<ChartConfig>): Promise<ChartConfig> {
     const { data, error } = await this.client
-      .from('learning_items')
-      .update(learningItemToRow(patch, this.userId))
+      .from('chart_configs')
+      .update(chartConfigToRow(patch, this.userId))
       .eq('id', id)
       .select()
       .single()
     if (error) throw error
-    return learningItemFromRow(must(data, 'Learning item'))
+    return chartConfigFromRow(must(data, 'Chart config'))
   }
 
-  async deleteLearningItem(id: string): Promise<void> {
-    const { error } = await this.client.from('learning_items').delete().eq('id', id)
+  async deleteChartConfig(id: string): Promise<void> {
+    const { error } = await this.client.from('chart_configs').delete().eq('id', id)
     if (error) throw error
   }
 }

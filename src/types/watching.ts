@@ -1,6 +1,7 @@
-// Watching domain types — movies & TV, built on the same framework as
-// reading.ts (spec §19 pattern, extended per user request).
-// A tv_show's episodes are its Moons — see Episode below.
+// Watching domain types — movies & TV. A tv_show's episodes are its
+// Moons — see Episode below. Phase 6: dropped WatchList/WatchChallenge
+// (a watch-related goal is just a Star now) and the auto-star column;
+// added tags for the Bucket List's show/movie categories.
 
 export type WatchableType = 'movie' | 'tv_show'
 
@@ -19,10 +20,9 @@ export interface Watchable {
   status: WatchStatus
   rating?: number // 1-5, set on completion
   notes?: string
+  tags: string[]
 
   relatedStarIds: string[]
-  relatedConstellationIds: string[]
-  linkedStarId?: string
 
   createdAt: string
   updatedAt: string
@@ -43,29 +43,6 @@ export interface Episode {
   updatedAt: string
 }
 
-export type WatchListType = 'custom' | 'lifetime' | 'franchise' | 'challenge'
-
-export const WATCH_LIST_TYPES: WatchListType[] = ['custom', 'lifetime', 'franchise', 'challenge']
-
-export interface WatchList {
-  id: string
-  name: string
-  description?: string
-  type: WatchListType
-  relatedStarIds: string[]
-  linkedStarId?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface WatchListItem {
-  id: string
-  watchListId: string
-  watchableId: string
-  sortIndex: number
-  createdAt: string
-}
-
 export type ViewingCompletionStatus = 'in_progress' | 'completed' | 'dnf'
 
 export interface ViewingSession {
@@ -76,18 +53,6 @@ export interface ViewingSession {
   notes?: string
   rating?: number
   completionStatus?: ViewingCompletionStatus
-  createdAt: string
-  updatedAt: string
-}
-
-export interface WatchChallenge {
-  id: string
-  name: string
-  target: number // count of movies/shows to finish in the period
-  startDate: string
-  endDate: string
-  notes?: string
-  relatedStarIds: string[]
   createdAt: string
   updatedAt: string
 }

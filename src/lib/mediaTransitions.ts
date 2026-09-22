@@ -1,4 +1,4 @@
-import type { BookStatus } from '@/types/reading'
+import type { BookReadStatus as BookStatus } from '@/types/library'
 import type { WatchStatus } from '@/types/watching'
 
 const BOOK_ALLOWED: Record<BookStatus, BookStatus[]> = {

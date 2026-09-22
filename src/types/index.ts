@@ -3,22 +3,9 @@
 // scoped to what Phase 1 needs. Later phases add travel/reading/learning/etc.
 // tables that reference stars/constellations rather than changing these.
 
-export type StarStage =
-  | 'someday'
-  | 'on_the_horizon'
-  | 'planning'
-  | 'current_orbit'
-  | 'completed'
-  | 'archived'
+export type StarStage = 'someday' | 'on_the_horizon' | 'current_orbit' | 'completed'
 
-export const STAR_STAGE_ORDER: StarStage[] = [
-  'someday',
-  'on_the_horizon',
-  'planning',
-  'current_orbit',
-  'completed',
-  'archived',
-]
+export const STAR_STAGE_ORDER: StarStage[] = ['someday', 'on_the_horizon', 'current_orbit', 'completed']
 
 export type StarCategory =
   | 'travel'
@@ -64,7 +51,6 @@ export interface Star {
 
   createdAt: string
   updatedAt: string
-  archivedAt?: string
 }
 
 export interface Constellation {
@@ -139,6 +125,9 @@ export interface Recommendation {
   activityType?: ActivityType
 }
 
+import type { MetricsTimeframe } from './charts'
+
 export interface AppSettings {
   currentOrbitLimit: number // default 5, configurable (§4)
+  readingMetricsTimeframe: MetricsTimeframe // last-used timeframe on the Metrics view, remembered across sessions
 }

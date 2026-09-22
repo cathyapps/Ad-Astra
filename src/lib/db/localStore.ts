@@ -1,16 +1,10 @@
 import { v4 as uuid } from 'uuid'
 import type { AppSettings, Constellation, Star, Task } from '@/types'
-import type { Trip, TripItem } from '@/types/travel'
-import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
-import type {
-  Episode,
-  ViewingSession,
-  WatchChallenge,
-  Watchable,
-  WatchList,
-  WatchListItem,
-} from '@/types/watching'
-import type { LearningGoal, LearningItem } from '@/types/learning'
+import type { Book, ReadingLog } from '@/types/library'
+import type { BucketListItem } from '@/types/bucketList'
+import type { ChartConfig } from '@/types/charts'
+import { DEFAULT_VIEW_NAME } from '@/types/charts'
+import type { Episode, ViewingSession, Watchable } from '@/types/watching'
 import type { AdAstraStore } from './types'
 
 const KEYS = {
@@ -18,21 +12,13 @@ const KEYS = {
   constellations: 'ad_astra_constellations',
   tasks: 'ad_astra_tasks',
   settings: 'ad_astra_settings',
-  trips: 'ad_astra_trips',
-  tripItems: 'ad_astra_trip_items',
-  books: 'ad_astra_books',
-  bookLists: 'ad_astra_book_lists',
-  bookListItems: 'ad_astra_book_list_items',
-  readingSessions: 'ad_astra_reading_sessions',
-  readingChallenges: 'ad_astra_reading_challenges',
   watchables: 'ad_astra_watchables',
   episodes: 'ad_astra_episodes',
-  watchLists: 'ad_astra_watch_lists',
-  watchListItems: 'ad_astra_watch_list_items',
   viewingSessions: 'ad_astra_viewing_sessions',
-  watchChallenges: 'ad_astra_watch_challenges',
-  learningGoals: 'ad_astra_learning_goals',
-  learningItems: 'ad_astra_learning_items',
+  books: 'ad_astra_books',
+  readingLogs: 'ad_astra_reading_logs',
+  bucketListItems: 'ad_astra_bucket_list_items',
+  chartConfigs: 'ad_astra_chart_configs',
 }
 
 function read<T>(key: string, fallback: T): T {
@@ -53,9 +39,11 @@ function now() {
   return new Date().toISOString()
 }
 
-const DEFAULT_SETTINGS: AppSettings = { currentOrbitLimit: 5 }
+const DEFAULT_SETTINGS: AppSettings = { currentOrbitLimit: 5, readingMetricsTimeframe: '30d' }
 
 export class LocalStore implements AdAstraStore {
+  // --- Phase 1: Core Universe ---
+
   async listStars(): Promise<Star[]> {
     return read<Star[]>(KEYS.stars, [])
   }
@@ -109,6 +97,10 @@ export class LocalStore implements AdAstraStore {
     write(
       KEYS.stars,
       (await this.listStars()).filter((s) => s.id !== id),
+    )
+    write(
+      KEYS.tasks,
+      (await this.listTasks()).filter((t) => t.starId !== id),
     )
   }
 
@@ -180,6 +172,11 @@ export class LocalStore implements AdAstraStore {
       notes: input.notes,
       createdAt: now(),
       updatedAt: now(),
+      activityType: input.activityType,
+      suitableLocations: input.suitableLocations,
+      suitableDevices: input.suitableDevices,
+      requiredEffort: input.requiredEffort,
+      requiredEnergy: input.requiredEnergy,
     }
     write(KEYS.tasks, [...tasks, task])
     return task
@@ -217,330 +214,7 @@ export class LocalStore implements AdAstraStore {
     return updated
   }
 
-  // --- Phase 2: Travel (Trip -> Planets -> Moons; no standalone destinations) ---
-
-  async listTrips(): Promise<Trip[]> {
-    return read<Trip[]>(KEYS.trips, [])
-  }
-
-  async getTrip(id: string): Promise<Trip | undefined> {
-    return (await this.listTrips()).find((t) => t.id === id)
-  }
-
-  async createTrip(input: Partial<Trip> & { name: string }): Promise<Trip> {
-    const trips = await this.listTrips()
-    const trip: Trip = {
-      id: uuid(),
-      name: input.name,
-      status: input.status ?? 'idea',
-      startDate: input.startDate,
-      endDate: input.endDate,
-      numDays: input.numDays,
-      budget: input.budget,
-      notes: input.notes,
-      relatedStarIds: input.relatedStarIds ?? [],
-      linkedStarId: input.linkedStarId,
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.trips, [...trips, trip])
-    return trip
-  }
-
-  async updateTrip(id: string, patch: Partial<Trip>): Promise<Trip> {
-    const trips = await this.listTrips()
-    const idx = trips.findIndex((t) => t.id === id)
-    if (idx === -1) throw new Error(`Trip ${id} not found`)
-    const updated = { ...trips[idx], ...patch, updatedAt: now() }
-    trips[idx] = updated
-    write(KEYS.trips, trips)
-    return updated
-  }
-
-  async deleteTrip(id: string): Promise<void> {
-    write(KEYS.trips, (await this.listTrips()).filter((t) => t.id !== id))
-    write(
-      KEYS.tripItems,
-      (await this.listTripItems()).filter((i) => i.tripId !== id),
-    )
-  }
-
-  async listTripItems(tripId?: string): Promise<TripItem[]> {
-    const items = read<TripItem[]>(KEYS.tripItems, [])
-    return tripId ? items.filter((i) => i.tripId === tripId) : items
-  }
-
-  async createTripItem(
-    input: Partial<TripItem> & { tripId: string; name: string },
-  ): Promise<TripItem> {
-    const items = await this.listTripItems()
-    const item: TripItem = {
-      id: uuid(),
-      tripId: input.tripId,
-      parentItemId: input.parentItemId,
-      type: input.type ?? 'activity',
-      name: input.name,
-      date: input.date,
-      notes: input.notes,
-      cost: input.cost,
-      sortIndex: input.sortIndex ?? items.filter((i) => i.tripId === input.tripId).length,
-      why: input.why,
-      bestSeason: input.bestSeason,
-      desiredTripLength: input.desiredTripLength,
-      estimatedCost: input.estimatedCost,
-      companions: input.companions ?? [],
-      lifeStageTags: input.lifeStageTags ?? [],
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.tripItems, [...items, item])
-    return item
-  }
-
-  async updateTripItem(id: string, patch: Partial<TripItem>): Promise<TripItem> {
-    const items = await this.listTripItems()
-    const idx = items.findIndex((i) => i.id === id)
-    if (idx === -1) throw new Error(`Trip item ${id} not found`)
-    const updated = { ...items[idx], ...patch, updatedAt: now() }
-    items[idx] = updated
-    write(KEYS.tripItems, items)
-    return updated
-  }
-
-  async deleteTripItem(id: string): Promise<void> {
-    write(
-      KEYS.tripItems,
-      (await this.listTripItems()).filter((i) => i.id !== id),
-    )
-  }
-
-  // --- Phase 3: Reading ---
-
-  async listBooks(): Promise<Book[]> {
-    return read<Book[]>(KEYS.books, [])
-  }
-
-  async getBook(id: string): Promise<Book | undefined> {
-    return (await this.listBooks()).find((b) => b.id === id)
-  }
-
-  async createBook(input: Partial<Book> & { title: string }): Promise<Book> {
-    const books = await this.listBooks()
-    const book: Book = {
-      id: uuid(),
-      title: input.title,
-      author: input.author,
-      series: input.series,
-      genre: input.genre,
-      format: input.format,
-      source: input.source ?? 'owned',
-      edition: input.edition,
-      location: input.location,
-      status: input.status ?? 'want_to_read',
-      rating: input.rating,
-      totalPages: input.totalPages,
-      totalMinutes: input.totalMinutes,
-      notes: input.notes,
-      relatedStarIds: input.relatedStarIds ?? [],
-      relatedConstellationIds: input.relatedConstellationIds ?? [],
-      linkedStarId: input.linkedStarId,
-      createdAt: now(),
-      updatedAt: now(),
-      completedAt: input.completedAt,
-    }
-    write(KEYS.books, [...books, book])
-    return book
-  }
-
-  async updateBook(id: string, patch: Partial<Book>): Promise<Book> {
-    const books = await this.listBooks()
-    const idx = books.findIndex((b) => b.id === id)
-    if (idx === -1) throw new Error(`Book ${id} not found`)
-    const updated = { ...books[idx], ...patch, updatedAt: now() }
-    books[idx] = updated
-    write(KEYS.books, books)
-    return updated
-  }
-
-  async deleteBook(id: string): Promise<void> {
-    write(KEYS.books, (await this.listBooks()).filter((b) => b.id !== id))
-    write(
-      KEYS.bookListItems,
-      (await this.listBookListItems()).filter((i) => i.bookId !== id),
-    )
-    write(
-      KEYS.readingSessions,
-      (await this.listReadingSessions()).filter((s) => s.bookId !== id),
-    )
-  }
-
-  async listBookLists(): Promise<BookList[]> {
-    return read<BookList[]>(KEYS.bookLists, [])
-  }
-
-  async createBookList(input: Partial<BookList> & { name: string }): Promise<BookList> {
-    const lists = await this.listBookLists()
-    const list: BookList = {
-      id: uuid(),
-      name: input.name,
-      description: input.description,
-      type: input.type ?? 'custom',
-      relatedStarIds: input.relatedStarIds ?? [],
-      linkedStarId: input.linkedStarId,
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.bookLists, [...lists, list])
-    return list
-  }
-
-  async updateBookList(id: string, patch: Partial<BookList>): Promise<BookList> {
-    const lists = await this.listBookLists()
-    const idx = lists.findIndex((l) => l.id === id)
-    if (idx === -1) throw new Error(`Book list ${id} not found`)
-    const updated = { ...lists[idx], ...patch, updatedAt: now() }
-    lists[idx] = updated
-    write(KEYS.bookLists, lists)
-    return updated
-  }
-
-  async deleteBookList(id: string): Promise<void> {
-    write(KEYS.bookLists, (await this.listBookLists()).filter((l) => l.id !== id))
-    write(
-      KEYS.bookListItems,
-      (await this.listBookListItems()).filter((i) => i.bookListId !== id),
-    )
-  }
-
-  async listBookListItems(bookListId?: string): Promise<BookListItem[]> {
-    const items = read<BookListItem[]>(KEYS.bookListItems, [])
-    return bookListId ? items.filter((i) => i.bookListId === bookListId) : items
-  }
-
-  async addBookToList(bookListId: string, bookId: string): Promise<BookListItem> {
-    const items = await this.listBookListItems()
-    const existing = items.find((i) => i.bookListId === bookListId && i.bookId === bookId)
-    if (existing) return existing
-    const item: BookListItem = {
-      id: uuid(),
-      bookListId,
-      bookId,
-      sortIndex: items.filter((i) => i.bookListId === bookListId).length,
-      createdAt: now(),
-    }
-    write(KEYS.bookListItems, [...items, item])
-    return item
-  }
-
-  async removeBookFromList(bookListId: string, bookId: string): Promise<void> {
-    write(
-      KEYS.bookListItems,
-      (await this.listBookListItems()).filter(
-        (i) => !(i.bookListId === bookListId && i.bookId === bookId),
-      ),
-    )
-  }
-
-  async listReadingSessions(bookId?: string): Promise<ReadingSession[]> {
-    const sessions = read<ReadingSession[]>(KEYS.readingSessions, [])
-    return bookId ? sessions.filter((s) => s.bookId === bookId) : sessions
-  }
-
-  async createReadingSession(
-    input: Partial<ReadingSession> & { bookId: string },
-  ): Promise<ReadingSession> {
-    const sessions = await this.listReadingSessions()
-    const session: ReadingSession = {
-      id: uuid(),
-      bookId: input.bookId,
-      date: input.date ?? now().slice(0, 10),
-      currentPage: input.currentPage,
-      currentTimeMinutes: input.currentTimeMinutes,
-      percentComplete: input.percentComplete,
-      minutesSpentReading: input.minutesSpentReading,
-      notes: input.notes,
-      rating: input.rating,
-      completionStatus: input.completionStatus,
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.readingSessions, [...sessions, session])
-
-    if (session.completionStatus === 'completed' || session.completionStatus === 'dnf') {
-      await this.updateBook(session.bookId, {
-        status: session.completionStatus === 'completed' ? 'read' : 'dnf',
-        rating: session.rating ?? (await this.getBook(session.bookId))?.rating,
-        completedAt: now(),
-      })
-    }
-    return session
-  }
-
-  async updateReadingSession(
-    id: string,
-    patch: Partial<ReadingSession>,
-  ): Promise<ReadingSession> {
-    const sessions = await this.listReadingSessions()
-    const idx = sessions.findIndex((s) => s.id === id)
-    if (idx === -1) throw new Error(`Reading session ${id} not found`)
-    const updated = { ...sessions[idx], ...patch, updatedAt: now() }
-    sessions[idx] = updated
-    write(KEYS.readingSessions, sessions)
-    return updated
-  }
-
-  async deleteReadingSession(id: string): Promise<void> {
-    write(
-      KEYS.readingSessions,
-      (await this.listReadingSessions()).filter((s) => s.id !== id),
-    )
-  }
-
-  async listReadingChallenges(): Promise<ReadingChallenge[]> {
-    return read<ReadingChallenge[]>(KEYS.readingChallenges, [])
-  }
-
-  async createReadingChallenge(
-    input: Partial<ReadingChallenge> & { name: string },
-  ): Promise<ReadingChallenge> {
-    const challenges = await this.listReadingChallenges()
-    const challenge: ReadingChallenge = {
-      id: uuid(),
-      name: input.name,
-      goalType: input.goalType ?? 'book_count',
-      target: input.target ?? 1,
-      startDate: input.startDate ?? now().slice(0, 10),
-      endDate: input.endDate ?? now().slice(0, 10),
-      notes: input.notes,
-      relatedStarIds: input.relatedStarIds ?? [],
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.readingChallenges, [...challenges, challenge])
-    return challenge
-  }
-
-  async updateReadingChallenge(
-    id: string,
-    patch: Partial<ReadingChallenge>,
-  ): Promise<ReadingChallenge> {
-    const challenges = await this.listReadingChallenges()
-    const idx = challenges.findIndex((c) => c.id === id)
-    if (idx === -1) throw new Error(`Reading challenge ${id} not found`)
-    const updated = { ...challenges[idx], ...patch, updatedAt: now() }
-    challenges[idx] = updated
-    write(KEYS.readingChallenges, challenges)
-    return updated
-  }
-
-  async deleteReadingChallenge(id: string): Promise<void> {
-    write(
-      KEYS.readingChallenges,
-      (await this.listReadingChallenges()).filter((c) => c.id !== id),
-    )
-  }
-
-  // --- Phase 3: Watching ---
+  // --- Watching (movies & TV) ---
 
   async listWatchables(): Promise<Watchable[]> {
     return read<Watchable[]>(KEYS.watchables, [])
@@ -561,9 +235,8 @@ export class LocalStore implements AdAstraStore {
       status: input.status ?? 'want_to_watch',
       rating: input.rating,
       notes: input.notes,
+      tags: input.tags ?? [],
       relatedStarIds: input.relatedStarIds ?? [],
-      relatedConstellationIds: input.relatedConstellationIds ?? [],
-      linkedStarId: input.linkedStarId,
       createdAt: now(),
       updatedAt: now(),
       completedAt: input.completedAt,
@@ -585,10 +258,6 @@ export class LocalStore implements AdAstraStore {
   async deleteWatchable(id: string): Promise<void> {
     write(KEYS.watchables, (await this.listWatchables()).filter((w) => w.id !== id))
     write(KEYS.episodes, (await this.listEpisodes()).filter((e) => e.watchableId !== id))
-    write(
-      KEYS.watchListItems,
-      (await this.listWatchListItems()).filter((i) => i.watchableId !== id),
-    )
     write(
       KEYS.viewingSessions,
       (await this.listViewingSessions()).filter((s) => s.watchableId !== id),
@@ -631,75 +300,6 @@ export class LocalStore implements AdAstraStore {
 
   async deleteEpisode(id: string): Promise<void> {
     write(KEYS.episodes, (await this.listEpisodes()).filter((e) => e.id !== id))
-  }
-
-  async listWatchLists(): Promise<WatchList[]> {
-    return read<WatchList[]>(KEYS.watchLists, [])
-  }
-
-  async createWatchList(input: Partial<WatchList> & { name: string }): Promise<WatchList> {
-    const lists = await this.listWatchLists()
-    const list: WatchList = {
-      id: uuid(),
-      name: input.name,
-      description: input.description,
-      type: input.type ?? 'custom',
-      relatedStarIds: input.relatedStarIds ?? [],
-      linkedStarId: input.linkedStarId,
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.watchLists, [...lists, list])
-    return list
-  }
-
-  async updateWatchList(id: string, patch: Partial<WatchList>): Promise<WatchList> {
-    const lists = await this.listWatchLists()
-    const idx = lists.findIndex((l) => l.id === id)
-    if (idx === -1) throw new Error(`Watch list ${id} not found`)
-    const updated = { ...lists[idx], ...patch, updatedAt: now() }
-    lists[idx] = updated
-    write(KEYS.watchLists, lists)
-    return updated
-  }
-
-  async deleteWatchList(id: string): Promise<void> {
-    write(KEYS.watchLists, (await this.listWatchLists()).filter((l) => l.id !== id))
-    write(
-      KEYS.watchListItems,
-      (await this.listWatchListItems()).filter((i) => i.watchListId !== id),
-    )
-  }
-
-  async listWatchListItems(watchListId?: string): Promise<WatchListItem[]> {
-    const items = read<WatchListItem[]>(KEYS.watchListItems, [])
-    return watchListId ? items.filter((i) => i.watchListId === watchListId) : items
-  }
-
-  async addWatchableToList(watchListId: string, watchableId: string): Promise<WatchListItem> {
-    const items = await this.listWatchListItems()
-    const existing = items.find(
-      (i) => i.watchListId === watchListId && i.watchableId === watchableId,
-    )
-    if (existing) return existing
-    const item: WatchListItem = {
-      id: uuid(),
-      watchListId,
-      watchableId,
-      sortIndex: items.filter((i) => i.watchListId === watchListId).length,
-      createdAt: now(),
-    }
-    write(KEYS.watchListItems, [...items, item])
-    return item
-  }
-
-  async removeWatchableFromList(watchListId: string, watchableId: string): Promise<void> {
-    write(
-      KEYS.watchListItems,
-      (await this.listWatchListItems()).filter(
-        (i) => !(i.watchListId === watchListId && i.watchableId === watchableId),
-      ),
-    )
   }
 
   async listViewingSessions(watchableId?: string): Promise<ViewingSession[]> {
@@ -754,134 +354,191 @@ export class LocalStore implements AdAstraStore {
     )
   }
 
-  async listWatchChallenges(): Promise<WatchChallenge[]> {
-    return read<WatchChallenge[]>(KEYS.watchChallenges, [])
+  // --- Library (books) ---
+
+  async listBooks(): Promise<Book[]> {
+    return read<Book[]>(KEYS.books, [])
   }
 
-  async createWatchChallenge(
-    input: Partial<WatchChallenge> & { name: string },
-  ): Promise<WatchChallenge> {
-    const challenges = await this.listWatchChallenges()
-    const challenge: WatchChallenge = {
+  async getBook(id: string): Promise<Book | undefined> {
+    return (await this.listBooks()).find((b) => b.id === id)
+  }
+
+  async createBook(input: Partial<Book> & { title: string }): Promise<Book> {
+    const books = await this.listBooks()
+    const book: Book = {
       id: uuid(),
-      name: input.name,
-      target: input.target ?? 1,
-      startDate: input.startDate ?? now().slice(0, 10),
-      endDate: input.endDate ?? now().slice(0, 10),
+      title: input.title,
+      author: input.author,
+      series: input.series,
+      genre: input.genre,
+      ownership: input.ownership ?? 'tbd',
+      format: input.format ?? 'tbd',
+      readStatus: input.readStatus ?? 'want_to_read',
+      totalPages: input.totalPages,
+      totalMinutes: input.totalMinutes,
+      rating: input.rating,
       notes: input.notes,
+      tags: input.tags ?? [],
       relatedStarIds: input.relatedStarIds ?? [],
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    write(KEYS.watchChallenges, [...challenges, challenge])
-    return challenge
-  }
-
-  async updateWatchChallenge(
-    id: string,
-    patch: Partial<WatchChallenge>,
-  ): Promise<WatchChallenge> {
-    const challenges = await this.listWatchChallenges()
-    const idx = challenges.findIndex((c) => c.id === id)
-    if (idx === -1) throw new Error(`Watch challenge ${id} not found`)
-    const updated = { ...challenges[idx], ...patch, updatedAt: now() }
-    challenges[idx] = updated
-    write(KEYS.watchChallenges, challenges)
-    return updated
-  }
-
-  async deleteWatchChallenge(id: string): Promise<void> {
-    write(
-      KEYS.watchChallenges,
-      (await this.listWatchChallenges()).filter((c) => c.id !== id),
-    )
-  }
-
-  // --- Phase 4: Learning (Goal -> Planets -> Moons; no metrics) ---
-
-  async listLearningGoals(): Promise<LearningGoal[]> {
-    return read<LearningGoal[]>(KEYS.learningGoals, [])
-  }
-
-  async getLearningGoal(id: string): Promise<LearningGoal | undefined> {
-    return (await this.listLearningGoals()).find((g) => g.id === id)
-  }
-
-  async createLearningGoal(input: Partial<LearningGoal> & { name: string }): Promise<LearningGoal> {
-    const goals = await this.listLearningGoals()
-    const goal: LearningGoal = {
-      id: uuid(),
-      name: input.name,
-      description: input.description,
-      status: input.status ?? 'planned',
-      notes: input.notes,
-      relatedStarIds: input.relatedStarIds ?? [],
-      linkedStarId: input.linkedStarId,
+      startedAt: input.startedAt,
       createdAt: now(),
       updatedAt: now(),
       completedAt: input.completedAt,
     }
-    write(KEYS.learningGoals, [...goals, goal])
-    return goal
+    write(KEYS.books, [...books, book])
+    return book
   }
 
-  async updateLearningGoal(id: string, patch: Partial<LearningGoal>): Promise<LearningGoal> {
-    const goals = await this.listLearningGoals()
-    const idx = goals.findIndex((g) => g.id === id)
-    if (idx === -1) throw new Error(`Learning goal ${id} not found`)
-    const updated = { ...goals[idx], ...patch, updatedAt: now() }
-    goals[idx] = updated
-    write(KEYS.learningGoals, goals)
+  async updateBook(id: string, patch: Partial<Book>): Promise<Book> {
+    const books = await this.listBooks()
+    const idx = books.findIndex((b) => b.id === id)
+    if (idx === -1) throw new Error(`Book ${id} not found`)
+    const updated = { ...books[idx], ...patch, updatedAt: now() }
+    books[idx] = updated
+    write(KEYS.books, books)
     return updated
   }
 
-  async deleteLearningGoal(id: string): Promise<void> {
-    write(KEYS.learningGoals, (await this.listLearningGoals()).filter((g) => g.id !== id))
+  async deleteBook(id: string): Promise<void> {
+    write(KEYS.books, (await this.listBooks()).filter((b) => b.id !== id))
     write(
-      KEYS.learningItems,
-      (await this.listLearningItems()).filter((i) => i.goalId !== id),
+      KEYS.readingLogs,
+      (await this.listReadingLogs()).filter((l) => l.bookId !== id),
     )
   }
 
-  async listLearningItems(goalId?: string): Promise<LearningItem[]> {
-    const items = read<LearningItem[]>(KEYS.learningItems, [])
-    return goalId ? items.filter((i) => i.goalId === goalId) : items
+  async listReadingLogs(bookId?: string): Promise<ReadingLog[]> {
+    const logs = read<ReadingLog[]>(KEYS.readingLogs, [])
+    return bookId ? logs.filter((l) => l.bookId === bookId) : logs
   }
 
-  async createLearningItem(
-    input: Partial<LearningItem> & { goalId: string; name: string },
-  ): Promise<LearningItem> {
-    const items = await this.listLearningItems()
-    const item: LearningItem = {
+  async createReadingLog(input: Partial<ReadingLog> & { bookId: string }): Promise<ReadingLog> {
+    const logs = await this.listReadingLogs()
+    const log: ReadingLog = {
       id: uuid(),
-      goalId: input.goalId,
-      parentItemId: input.parentItemId,
+      bookId: input.bookId,
+      date: input.date ?? now().slice(0, 10),
+      currentPage: input.currentPage,
+      currentTimeMinutes: input.currentTimeMinutes,
+      percentComplete: input.percentComplete,
+      minutesSpentReading: input.minutesSpentReading,
+      notes: input.notes,
+      createdAt: now(),
+    }
+    write(KEYS.readingLogs, [...logs, log])
+    return log
+  }
+
+  async updateReadingLog(id: string, patch: Partial<ReadingLog>): Promise<ReadingLog> {
+    const logs = await this.listReadingLogs()
+    const idx = logs.findIndex((l) => l.id === id)
+    if (idx === -1) throw new Error(`Reading log ${id} not found`)
+    const updated = { ...logs[idx], ...patch }
+    logs[idx] = updated
+    write(KEYS.readingLogs, logs)
+    return updated
+  }
+
+  async deleteReadingLog(id: string): Promise<void> {
+    write(
+      KEYS.readingLogs,
+      (await this.listReadingLogs()).filter((l) => l.id !== id),
+    )
+  }
+
+  // --- Bucket List ---
+
+  async listBucketListItems(): Promise<BucketListItem[]> {
+    return read<BucketListItem[]>(KEYS.bucketListItems, [])
+  }
+
+  async getBucketListItem(id: string): Promise<BucketListItem | undefined> {
+    return (await this.listBucketListItems()).find((i) => i.id === id)
+  }
+
+  async createBucketListItem(
+    input: Partial<BucketListItem> & { category: BucketListItem['category']; name: string },
+  ): Promise<BucketListItem> {
+    const items = await this.listBucketListItems()
+    const item: BucketListItem = {
+      id: uuid(),
+      category: input.category,
       name: input.name,
       notes: input.notes,
-      status: input.status ?? 'planned',
-      sortIndex: input.sortIndex ?? items.filter((i) => i.goalId === input.goalId).length,
+      status: input.status ?? 'backlog',
+      tags: input.tags ?? [],
+      relatedStarIds: input.relatedStarIds ?? [],
+      bookId: input.bookId,
+      watchableId: input.watchableId,
       createdAt: now(),
       updatedAt: now(),
       completedAt: input.completedAt,
     }
-    write(KEYS.learningItems, [...items, item])
+    write(KEYS.bucketListItems, [...items, item])
     return item
   }
 
-  async updateLearningItem(id: string, patch: Partial<LearningItem>): Promise<LearningItem> {
-    const items = await this.listLearningItems()
+  async updateBucketListItem(
+    id: string,
+    patch: Partial<BucketListItem>,
+  ): Promise<BucketListItem> {
+    const items = await this.listBucketListItems()
     const idx = items.findIndex((i) => i.id === id)
-    if (idx === -1) throw new Error(`Learning item ${id} not found`)
+    if (idx === -1) throw new Error(`Bucket list item ${id} not found`)
     const updated = { ...items[idx], ...patch, updatedAt: now() }
     items[idx] = updated
-    write(KEYS.learningItems, items)
+    write(KEYS.bucketListItems, items)
     return updated
   }
 
-  async deleteLearningItem(id: string): Promise<void> {
+  async deleteBucketListItem(id: string): Promise<void> {
     write(
-      KEYS.learningItems,
-      (await this.listLearningItems()).filter((i) => i.id !== id),
+      KEYS.bucketListItems,
+      (await this.listBucketListItems()).filter((i) => i.id !== id),
+    )
+  }
+
+  // --- Chart configs (dynamic metrics builder) ---
+
+  async listChartConfigs(viewName = DEFAULT_VIEW_NAME): Promise<ChartConfig[]> {
+    return read<ChartConfig[]>(KEYS.chartConfigs, []).filter((c) => c.viewName === viewName)
+  }
+
+  async createChartConfig(
+    input: Partial<ChartConfig> & { title: string; chartType: ChartConfig['chartType']; xAxis: ChartConfig['xAxis']; yAxis: ChartConfig['yAxis'] },
+  ): Promise<ChartConfig> {
+    const all = read<ChartConfig[]>(KEYS.chartConfigs, [])
+    const viewName = input.viewName ?? DEFAULT_VIEW_NAME
+    const config: ChartConfig = {
+      id: uuid(),
+      viewName,
+      title: input.title,
+      chartType: input.chartType,
+      xAxis: input.xAxis,
+      yAxis: input.yAxis,
+      sortIndex: input.sortIndex ?? all.filter((c) => c.viewName === viewName).length,
+      createdAt: now(),
+      updatedAt: now(),
+    }
+    write(KEYS.chartConfigs, [...all, config])
+    return config
+  }
+
+  async updateChartConfig(id: string, patch: Partial<ChartConfig>): Promise<ChartConfig> {
+    const all = read<ChartConfig[]>(KEYS.chartConfigs, [])
+    const idx = all.findIndex((c) => c.id === id)
+    if (idx === -1) throw new Error(`Chart config ${id} not found`)
+    const updated = { ...all[idx], ...patch, updatedAt: now() }
+    all[idx] = updated
+    write(KEYS.chartConfigs, all)
+    return updated
+  }
+
+  async deleteChartConfig(id: string): Promise<void> {
+    write(
+      KEYS.chartConfigs,
+      read<ChartConfig[]>(KEYS.chartConfigs, []).filter((c) => c.id !== id),
     )
   }
 }

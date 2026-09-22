@@ -2,24 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { db } from '@/lib/db'
 import { checkCapacity, resolveCapacityChoice, type CapacityChoice } from '@/lib/currentOrbit'
 import { planTransition } from '@/lib/starLifecycle'
-import {
-  tripStatusToStarStage,
-  bookStatusToStarStage,
-  watchStatusToStarStage,
-  learningStatusToStarStage,
-} from '@/lib/autoStars'
 import type { AppSettings, Constellation, Star, StarStage, Task } from '@/types'
-import type { Trip, TripItem } from '@/types/travel'
-import type { Book, BookList, BookListItem, ReadingChallenge, ReadingSession } from '@/types/reading'
-import type {
-  Episode,
-  ViewingSession,
-  WatchChallenge,
-  Watchable,
-  WatchList,
-  WatchListItem,
-} from '@/types/watching'
-import type { LearningGoal, LearningItem } from '@/types/learning'
+import type { Book, ReadingLog } from '@/types/library'
+import type { BucketListItem } from '@/types/bucketList'
+import type { ChartConfig } from '@/types/charts'
+import { DEFAULT_VIEW_NAME } from '@/types/charts'
+import type { Episode, ViewingSession, Watchable } from '@/types/watching'
 
 export interface PendingCapacityPrompt {
   message: string
@@ -28,127 +16,59 @@ export interface PendingCapacityPrompt {
   incomingStarId: string
 }
 
-/** Creates, updates, or removes the auto-managed Star for a Trip/Book/
- *  Watchable as its status changes, or for a BookList/WatchList (which
- *  always gets one). desiredStage === null means "no Star should exist
- *  right now" (e.g. a Trip still at 'idea', a Book still 'want_to_read').
- *  Bypasses the interactive Current-Orbit capacity prompt on purpose —
- *  surfacing that modal as a side effect of, say, logging a reading
- *  session would be jarring; auto-linked stars just add to the orbit. */
-async function syncLinkedStar(params: {
-  linkedStarId?: string
-  desiredStage: StarStage | null
-  name: string
-  category?: Star['category']
-}): Promise<string | undefined> {
-  const { linkedStarId, desiredStage, name, category } = params
-
-  if (desiredStage === null) {
-    if (linkedStarId) {
-      await db.deleteStar(linkedStarId)
-      return undefined
-    }
-    return undefined
-  }
-
-  if (linkedStarId) {
-    const star = await db.getStar(linkedStarId)
-    if (star && star.stage !== desiredStage) {
-      await db.updateStar(linkedStarId, { stage: desiredStage })
-    } else if (star && star.name !== name) {
-      await db.updateStar(linkedStarId, { name })
-    }
-    return linkedStarId
-  }
-
-  const star = await db.createStar({ name, category, stage: desiredStage })
-  return star.id
-}
-
 export function useAdAstra() {
+  // --- Core Universe ---
   const [stars, setStars] = useState<Star[]>([])
   const [constellations, setConstellations] = useState<Constellation[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
-  const [settings, setSettings] = useState<AppSettings>({ currentOrbitLimit: 5 })
-  const [trips, setTrips] = useState<Trip[]>([])
-  const [tripItems, setTripItems] = useState<TripItem[]>([])
-  const [books, setBooks] = useState<Book[]>([])
-  const [bookLists, setBookLists] = useState<BookList[]>([])
-  const [bookListItems, setBookListItems] = useState<BookListItem[]>([])
-  const [readingSessions, setReadingSessions] = useState<ReadingSession[]>([])
-  const [readingChallenges, setReadingChallenges] = useState<ReadingChallenge[]>([])
+  const [settings, setSettings] = useState<AppSettings>({
+    currentOrbitLimit: 5,
+    readingMetricsTimeframe: '30d',
+  })
+
+  // --- Watching ---
   const [watchables, setWatchables] = useState<Watchable[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
-  const [watchLists, setWatchLists] = useState<WatchList[]>([])
-  const [watchListItems, setWatchListItems] = useState<WatchListItem[]>([])
   const [viewingSessions, setViewingSessions] = useState<ViewingSession[]>([])
-  const [watchChallenges, setWatchChallenges] = useState<WatchChallenge[]>([])
-  const [learningGoals, setLearningGoals] = useState<LearningGoal[]>([])
-  const [learningItems, setLearningItems] = useState<LearningItem[]>([])
+
+  // --- Library ---
+  const [books, setBooks] = useState<Book[]>([])
+  const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([])
+
+  // --- Bucket List ---
+  const [bucketListItems, setBucketListItems] = useState<BucketListItem[]>([])
+
+  // --- Chart configs (default view only — the metrics builder only has one view for now) ---
+  const [chartConfigs, setChartConfigs] = useState<ChartConfig[]>([])
+
   const [loading, setLoading] = useState(true)
   const [capacityPrompt, setCapacityPrompt] = useState<PendingCapacityPrompt | null>(null)
 
   const reload = useCallback(async () => {
-    const [
-      s,
-      c,
-      t,
-      set,
-      tr,
-      items,
-      bks,
-      bkLists,
-      bkListItems,
-      rSessions,
-      rChallenges,
-      watch,
-      eps,
-      wLists,
-      wListItems,
-      vSessions,
-      wChallenges,
-      lGoals,
-      lItems,
-    ] = await Promise.all([
+    const [s, c, t, set, watch, eps, vSessions, bks, logs, bucket, charts] = await Promise.all([
       db.listStars(),
       db.listConstellations(),
       db.listTasks(),
       db.getSettings(),
-      db.listTrips(),
-      db.listTripItems(),
-      db.listBooks(),
-      db.listBookLists(),
-      db.listBookListItems(),
-      db.listReadingSessions(),
-      db.listReadingChallenges(),
       db.listWatchables(),
       db.listEpisodes(),
-      db.listWatchLists(),
-      db.listWatchListItems(),
       db.listViewingSessions(),
-      db.listWatchChallenges(),
-      db.listLearningGoals(),
-      db.listLearningItems(),
+      db.listBooks(),
+      db.listReadingLogs(),
+      db.listBucketListItems(),
+      db.listChartConfigs(DEFAULT_VIEW_NAME),
     ])
     setStars(s)
     setConstellations(c)
     setTasks(t)
     setSettings(set)
-    setTrips(tr)
-    setTripItems(items)
-    setBooks(bks)
-    setBookLists(bkLists)
-    setBookListItems(bkListItems)
-    setReadingSessions(rSessions)
-    setReadingChallenges(rChallenges)
     setWatchables(watch)
     setEpisodes(eps)
-    setWatchLists(wLists)
-    setWatchListItems(wListItems)
     setViewingSessions(vSessions)
-    setWatchChallenges(wChallenges)
-    setLearningGoals(lGoals)
-    setLearningItems(lItems)
+    setBooks(bks)
+    setReadingLogs(logs)
+    setBucketListItems(bucket)
+    setChartConfigs(charts)
     setLoading(false)
   }, [])
 
@@ -156,10 +76,13 @@ export function useAdAstra() {
     reload()
   }, [reload])
 
+  // --- Star lifecycle (Someday -> On the Horizon -> Current Orbit -> Completed) ---
+
   /** Moves a Star to a new stage. If the move enters Current Orbit and
    *  capacity is at/over the limit, this stops short and populates
    *  `capacityPrompt` instead of committing — call `resolveCapacityPrompt`
-   *  with the user's choice to finish. */
+   *  with the user's choice to finish. Moving backward (to any earlier
+   *  stage) never needs the capacity check. */
   const moveStar = useCallback(
     async (starId: string, to: StarStage, opts?: { skipCapacityCheck?: boolean }) => {
       const star = stars.find((s) => s.id === starId)
@@ -219,6 +142,14 @@ export function useAdAstra() {
     [reload],
   )
 
+  const deleteStar = useCallback(
+    async (id: string) => {
+      await db.deleteStar(id)
+      await reload()
+    },
+    [reload],
+  )
+
   const createConstellation = useCallback(
     async (input: Partial<Constellation> & { name: string }) => {
       const c = await db.createConstellation(input)
@@ -236,6 +167,16 @@ export function useAdAstra() {
     [reload],
   )
 
+  const deleteConstellation = useCallback(
+    async (id: string) => {
+      await db.deleteConstellation(id)
+      await reload()
+    },
+    [reload],
+  )
+
+  // A Star's own free-form Planets & Moons (top-level task = Planet,
+  // nested via parentTaskId = Moon).
   const createTask = useCallback(
     async (input: Partial<Task> & { starId: string; name: string }) => {
       const t = await db.createTask(input)
@@ -253,223 +194,24 @@ export function useAdAstra() {
     [reload],
   )
 
-  const updateSettings = useCallback(
-    async (patch: Partial<AppSettings>) => {
-      const s = await db.updateSettings(patch)
-      setSettings(s)
-    },
-    [],
-  )
-
-  // --- Phase 2: Travel (Trip -> Planets -> Moons) ---
-
-  const createTrip = useCallback(
-    async (input: Partial<Trip> & { name: string }) => {
-      const trip = await db.createTrip(input)
-      const linkedStarId = await syncLinkedStar({
-        linkedStarId: trip.linkedStarId,
-        desiredStage: tripStatusToStarStage(trip.status),
-        name: trip.name,
-        category: 'travel',
-      })
-      if (linkedStarId !== trip.linkedStarId) {
-        await db.updateTrip(trip.id, { linkedStarId })
-      }
-      await reload()
-      return trip
-    },
-    [reload],
-  )
-
-  const updateTrip = useCallback(
-    async (id: string, patch: Partial<Trip>) => {
-      const trip = await db.updateTrip(id, patch)
-      if (patch.status !== undefined || patch.name !== undefined) {
-        const linkedStarId = await syncLinkedStar({
-          linkedStarId: trip.linkedStarId,
-          desiredStage: tripStatusToStarStage(trip.status),
-          name: trip.name,
-          category: 'travel',
-        })
-        if (linkedStarId !== trip.linkedStarId) {
-          await db.updateTrip(trip.id, { linkedStarId })
-        }
-      }
-      await reload()
-    },
-    [reload],
-  )
-
-  const deleteTrip = useCallback(
+  const deleteTask = useCallback(
     async (id: string) => {
-      await db.deleteTrip(id)
+      await db.deleteTask(id)
       await reload()
     },
     [reload],
   )
 
-  const createTripItem = useCallback(
-    async (input: Partial<TripItem> & { tripId: string; name: string }) => {
-      const item = await db.createTripItem(input)
-      await reload()
-      return item
-    },
-    [reload],
-  )
+  const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
+    const s = await db.updateSettings(patch)
+    setSettings(s)
+  }, [])
 
-  const updateTripItem = useCallback(
-    async (id: string, patch: Partial<TripItem>) => {
-      await db.updateTripItem(id, patch)
-      await reload()
-    },
-    [reload],
-  )
-
-  const deleteTripItem = useCallback(
-    async (id: string) => {
-      await db.deleteTripItem(id)
-      await reload()
-    },
-    [reload],
-  )
-
-  // --- Phase 3: Reading ---
-
-  const createBook = useCallback(
-    async (input: Partial<Book> & { title: string }) => {
-      const b = await db.createBook(input)
-      const linkedStarId = await syncLinkedStar({
-        linkedStarId: b.linkedStarId,
-        desiredStage: bookStatusToStarStage(b.status),
-        name: b.title,
-        category: 'reading',
-      })
-      if (linkedStarId !== b.linkedStarId) {
-        await db.updateBook(b.id, { linkedStarId })
-      }
-      await reload()
-      return b
-    },
-    [reload],
-  )
-
-  const updateBook = useCallback(
-    async (id: string, patch: Partial<Book>) => {
-      const book = await db.updateBook(id, patch)
-      if (patch.status !== undefined || patch.title !== undefined) {
-        const linkedStarId = await syncLinkedStar({
-          linkedStarId: book.linkedStarId,
-          desiredStage: bookStatusToStarStage(book.status),
-          name: book.title,
-          category: 'reading',
-        })
-        if (linkedStarId !== book.linkedStarId) {
-          await db.updateBook(book.id, { linkedStarId })
-        }
-      }
-      await reload()
-    },
-    [reload],
-  )
-
-  const deleteBook = useCallback(
-    async (id: string) => {
-      await db.deleteBook(id)
-      await reload()
-    },
-    [reload],
-  )
-
-  const createBookList = useCallback(
-    async (input: Partial<BookList> & { name: string }) => {
-      const l = await db.createBookList(input)
-      const star = await db.createStar({ name: l.name, category: 'reading', stage: 'on_the_horizon' })
-      await db.updateBookList(l.id, { linkedStarId: star.id })
-      await reload()
-      return l
-    },
-    [reload],
-  )
-
-  const deleteBookList = useCallback(
-    async (id: string) => {
-      await db.deleteBookList(id)
-      await reload()
-    },
-    [reload],
-  )
-
-  const toggleBookInList = useCallback(
-    async (bookListId: string, bookId: string, isMember: boolean) => {
-      if (isMember) await db.removeBookFromList(bookListId, bookId)
-      else await db.addBookToList(bookListId, bookId)
-      await reload()
-    },
-    [reload],
-  )
-
-  const createReadingSession = useCallback(
-    async (input: Partial<ReadingSession> & { bookId: string }) => {
-      const s = await db.createReadingSession(input)
-      if (s.completionStatus === 'completed' || s.completionStatus === 'dnf') {
-        const book = await db.getBook(s.bookId)
-        if (book) {
-          const linkedStarId = await syncLinkedStar({
-            linkedStarId: book.linkedStarId,
-            desiredStage: bookStatusToStarStage(book.status),
-            name: book.title,
-            category: 'reading',
-          })
-          if (linkedStarId !== book.linkedStarId) {
-            await db.updateBook(book.id, { linkedStarId })
-          }
-        }
-      }
-      await reload()
-      return s
-    },
-    [reload],
-  )
-
-  const deleteReadingSession = useCallback(
-    async (id: string) => {
-      await db.deleteReadingSession(id)
-      await reload()
-    },
-    [reload],
-  )
-
-  const createReadingChallenge = useCallback(
-    async (input: Partial<ReadingChallenge> & { name: string }) => {
-      const c = await db.createReadingChallenge(input)
-      await reload()
-      return c
-    },
-    [reload],
-  )
-
-  const deleteReadingChallenge = useCallback(
-    async (id: string) => {
-      await db.deleteReadingChallenge(id)
-      await reload()
-    },
-    [reload],
-  )
-
-  // --- Phase 3: Watching ---
+  // --- Watching (movies & TV) ---
 
   const createWatchable = useCallback(
     async (input: Partial<Watchable> & { title: string }) => {
       const w = await db.createWatchable(input)
-      const linkedStarId = await syncLinkedStar({
-        linkedStarId: w.linkedStarId,
-        desiredStage: watchStatusToStarStage(w.status),
-        name: w.title,
-        category: 'other',
-      })
-      if (linkedStarId !== w.linkedStarId) {
-        await db.updateWatchable(w.id, { linkedStarId })
-      }
       await reload()
       return w
     },
@@ -478,18 +220,7 @@ export function useAdAstra() {
 
   const updateWatchable = useCallback(
     async (id: string, patch: Partial<Watchable>) => {
-      const watchable = await db.updateWatchable(id, patch)
-      if (patch.status !== undefined || patch.title !== undefined) {
-        const linkedStarId = await syncLinkedStar({
-          linkedStarId: watchable.linkedStarId,
-          desiredStage: watchStatusToStarStage(watchable.status),
-          name: watchable.title,
-          category: 'other',
-        })
-        if (linkedStarId !== watchable.linkedStarId) {
-          await db.updateWatchable(watchable.id, { linkedStarId })
-        }
-      }
+      await db.updateWatchable(id, patch)
       await reload()
     },
     [reload],
@@ -528,53 +259,22 @@ export function useAdAstra() {
     [reload],
   )
 
-  const createWatchList = useCallback(
-    async (input: Partial<WatchList> & { name: string }) => {
-      const l = await db.createWatchList(input)
-      const star = await db.createStar({ name: l.name, category: 'other', stage: 'on_the_horizon' })
-      await db.updateWatchList(l.id, { linkedStarId: star.id })
-      await reload()
-      return l
-    },
-    [reload],
-  )
-
-  const deleteWatchList = useCallback(
-    async (id: string) => {
-      await db.deleteWatchList(id)
-      await reload()
-    },
-    [reload],
-  )
-
-  const toggleWatchableInList = useCallback(
-    async (watchListId: string, watchableId: string, isMember: boolean) => {
-      if (isMember) await db.removeWatchableFromList(watchListId, watchableId)
-      else await db.addWatchableToList(watchListId, watchableId)
-      await reload()
-    },
-    [reload],
-  )
-
+  // Completing/DNF-ing a session also updates the Watchable's own status —
+  // handled inside the store (see createViewingSession in localStore.ts /
+  // supabaseStore.ts) so every caller gets it for free.
   const createViewingSession = useCallback(
     async (input: Partial<ViewingSession> & { watchableId: string }) => {
       const s = await db.createViewingSession(input)
-      if (s.completionStatus === 'completed' || s.completionStatus === 'dnf') {
-        const watchable = await db.getWatchable(s.watchableId)
-        if (watchable) {
-          const linkedStarId = await syncLinkedStar({
-            linkedStarId: watchable.linkedStarId,
-            desiredStage: watchStatusToStarStage(watchable.status),
-            name: watchable.title,
-            category: 'other',
-          })
-          if (linkedStarId !== watchable.linkedStarId) {
-            await db.updateWatchable(watchable.id, { linkedStarId })
-          }
-        }
-      }
       await reload()
       return s
+    },
+    [reload],
+  )
+
+  const updateViewingSession = useCallback(
+    async (id: string, patch: Partial<ViewingSession>) => {
+      await db.updateViewingSession(id, patch)
+      await reload()
     },
     [reload],
   )
@@ -587,90 +287,114 @@ export function useAdAstra() {
     [reload],
   )
 
-  const createWatchChallenge = useCallback(
-    async (input: Partial<WatchChallenge> & { name: string }) => {
-      const c = await db.createWatchChallenge(input)
+  // --- Library (books) ---
+
+  const createBook = useCallback(
+    async (input: Partial<Book> & { title: string }) => {
+      const b = await db.createBook(input)
       await reload()
-      return c
+      return b
     },
     [reload],
   )
 
-  const deleteWatchChallenge = useCallback(
+  const updateBook = useCallback(
+    async (id: string, patch: Partial<Book>) => {
+      await db.updateBook(id, patch)
+      await reload()
+    },
+    [reload],
+  )
+
+  const deleteBook = useCallback(
     async (id: string) => {
-      await db.deleteWatchChallenge(id)
+      await db.deleteBook(id)
       await reload()
     },
     [reload],
   )
 
-  // --- Phase 4: Learning (Goal -> Planets -> Moons) ---
-
-  const createLearningGoal = useCallback(
-    async (input: Partial<LearningGoal> & { name: string }) => {
-      const goal = await db.createLearningGoal(input)
-      const linkedStarId = await syncLinkedStar({
-        linkedStarId: goal.linkedStarId,
-        desiredStage: learningStatusToStarStage(goal.status),
-        name: goal.name,
-        category: 'learning',
-      })
-      if (linkedStarId !== goal.linkedStarId) {
-        await db.updateLearningGoal(goal.id, { linkedStarId })
-      }
+  const createReadingLog = useCallback(
+    async (input: Partial<ReadingLog> & { bookId: string }) => {
+      const l = await db.createReadingLog(input)
       await reload()
-      return goal
+      return l
     },
     [reload],
   )
 
-  const updateLearningGoal = useCallback(
-    async (id: string, patch: Partial<LearningGoal>) => {
-      const goal = await db.updateLearningGoal(id, patch)
-      if (patch.status !== undefined || patch.name !== undefined) {
-        const linkedStarId = await syncLinkedStar({
-          linkedStarId: goal.linkedStarId,
-          desiredStage: learningStatusToStarStage(goal.status),
-          name: goal.name,
-          category: 'learning',
-        })
-        if (linkedStarId !== goal.linkedStarId) {
-          await db.updateLearningGoal(goal.id, { linkedStarId })
-        }
-      }
+  const updateReadingLog = useCallback(
+    async (id: string, patch: Partial<ReadingLog>) => {
+      await db.updateReadingLog(id, patch)
       await reload()
     },
     [reload],
   )
 
-  const deleteLearningGoal = useCallback(
+  const deleteReadingLog = useCallback(
     async (id: string) => {
-      await db.deleteLearningGoal(id)
+      await db.deleteReadingLog(id)
       await reload()
     },
     [reload],
   )
 
-  const createLearningItem = useCallback(
-    async (input: Partial<LearningItem> & { goalId: string; name: string }) => {
-      const item = await db.createLearningItem(input)
+  // --- Bucket List ---
+
+  const createBucketListItem = useCallback(
+    async (input: Partial<BucketListItem> & { category: BucketListItem['category']; name: string }) => {
+      const item = await db.createBucketListItem(input)
       await reload()
       return item
     },
     [reload],
   )
 
-  const updateLearningItem = useCallback(
-    async (id: string, patch: Partial<LearningItem>) => {
-      await db.updateLearningItem(id, patch)
+  const updateBucketListItem = useCallback(
+    async (id: string, patch: Partial<BucketListItem>) => {
+      await db.updateBucketListItem(id, patch)
       await reload()
     },
     [reload],
   )
 
-  const deleteLearningItem = useCallback(
+  const deleteBucketListItem = useCallback(
     async (id: string) => {
-      await db.deleteLearningItem(id)
+      await db.deleteBucketListItem(id)
+      await reload()
+    },
+    [reload],
+  )
+
+  // --- Chart configs (dynamic metrics/KPI builder) ---
+
+  const createChartConfig = useCallback(
+    async (
+      input: Partial<ChartConfig> & {
+        title: string
+        chartType: ChartConfig['chartType']
+        xAxis: ChartConfig['xAxis']
+        yAxis: ChartConfig['yAxis']
+      },
+    ) => {
+      const c = await db.createChartConfig({ viewName: DEFAULT_VIEW_NAME, ...input })
+      await reload()
+      return c
+    },
+    [reload],
+  )
+
+  const updateChartConfig = useCallback(
+    async (id: string, patch: Partial<ChartConfig>) => {
+      await db.updateChartConfig(id, patch)
+      await reload()
+    },
+    [reload],
+  )
+
+  const deleteChartConfig = useCallback(
+    async (id: string) => {
+      await db.deleteChartConfig(id)
       await reload()
     },
     [reload],
@@ -682,66 +406,47 @@ export function useAdAstra() {
     constellations,
     tasks,
     settings,
-    trips,
-    tripItems,
-    books,
-    bookLists,
-    bookListItems,
-    readingSessions,
-    readingChallenges,
     watchables,
     episodes,
-    watchLists,
-    watchListItems,
     viewingSessions,
-    watchChallenges,
-    learningGoals,
-    learningItems,
+    books,
+    readingLogs,
+    bucketListItems,
+    chartConfigs,
     capacityPrompt,
     reload,
     moveStar,
     resolveCapacityPrompt,
     createStar,
     updateStar,
+    deleteStar,
     createConstellation,
     updateConstellation,
+    deleteConstellation,
     createTask,
     updateTask,
+    deleteTask,
     updateSettings,
-    createTrip,
-    updateTrip,
-    deleteTrip,
-    createTripItem,
-    updateTripItem,
-    deleteTripItem,
-    createBook,
-    updateBook,
-    deleteBook,
-    createBookList,
-    deleteBookList,
-    toggleBookInList,
-    createReadingSession,
-    deleteReadingSession,
-    createReadingChallenge,
-    deleteReadingChallenge,
     createWatchable,
     updateWatchable,
     deleteWatchable,
     createEpisode,
     updateEpisode,
     deleteEpisode,
-    createWatchList,
-    deleteWatchList,
-    toggleWatchableInList,
     createViewingSession,
+    updateViewingSession,
     deleteViewingSession,
-    createWatchChallenge,
-    deleteWatchChallenge,
-    createLearningGoal,
-    updateLearningGoal,
-    deleteLearningGoal,
-    createLearningItem,
-    updateLearningItem,
-    deleteLearningItem,
+    createBook,
+    updateBook,
+    deleteBook,
+    createReadingLog,
+    updateReadingLog,
+    deleteReadingLog,
+    createBucketListItem,
+    updateBucketListItem,
+    deleteBucketListItem,
+    createChartConfig,
+    updateChartConfig,
+    deleteChartConfig,
   }
 }

@@ -1,29 +1,22 @@
+import { STAR_STAGE_ORDER } from '@/types'
 import type { Star, StarStage } from '@/types'
 
-// Someday -> On the Horizon -> Planning -> Current Orbit -> Completed -> Archived
-// (spec §3). Forward moves follow that order one step at a time. Backward
-// moves are allowed from most stages (the user is always in control, §4),
-// and any active stage can be archived directly. Completed can be reopened
-// back to Current Orbit if the user changes their mind.
+// Someday -> On the Horizon -> Current Orbit -> Completed. Forward moves
+// go one step at a time. Backward moves are always allowed, to any
+// earlier stage — the user is always in control and can revert a Star
+// to a previous stage whenever they want. Completed can be reopened
+// back to Current Orbit (or further back) if the user changes their mind.
 const FORWARD: Partial<Record<StarStage, StarStage>> = {
   someday: 'on_the_horizon',
-  on_the_horizon: 'planning',
-  planning: 'current_orbit',
+  on_the_horizon: 'current_orbit',
   current_orbit: 'completed',
-}
-
-const ALLOWED_TRANSITIONS: Record<StarStage, StarStage[]> = {
-  someday: ['on_the_horizon', 'archived'],
-  on_the_horizon: ['someday', 'planning', 'archived'],
-  planning: ['on_the_horizon', 'current_orbit', 'archived'],
-  current_orbit: ['planning', 'on_the_horizon', 'completed', 'archived'],
-  completed: ['current_orbit', 'archived'],
-  archived: ['someday', 'on_the_horizon', 'planning'], // unarchiving restores to an active stage
 }
 
 export function canTransition(from: StarStage, to: StarStage): boolean {
   if (from === to) return true
-  return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false
+  if (FORWARD[from] === to) return true
+  // Any earlier stage in the order is a valid "revert back" target.
+  return STAR_STAGE_ORDER.indexOf(to) < STAR_STAGE_ORDER.indexOf(from)
 }
 
 export function nextForwardStage(stage: StarStage): StarStage | undefined {
@@ -36,10 +29,9 @@ export interface StageRequirement {
 }
 
 // What each stage expects to be filled in before a Star is considered
-// "ready" there. Nothing here blocks the transition — the spec is explicit
-// that lower stages require minimal info and the user is never forced to
-// plan ahead of themselves. This only powers soft UI nudges (e.g. "add a
-// next step" prompts), never a hard gate.
+// "ready" there. Nothing here blocks the transition — the user is never
+// forced to plan ahead of themselves. This only powers soft UI nudges
+// (e.g. "add a next step" prompts), never a hard gate.
 export function suggestedFieldsForStage(stage: StarStage): StageRequirement[] {
   switch (stage) {
     case 'someday':
@@ -49,17 +41,14 @@ export function suggestedFieldsForStage(stage: StarStage): StageRequirement[] {
         { field: 'desiredTimeframe', label: 'Desired timeframe' },
         { field: 'roughRequirements', label: 'Rough requirements' },
       ]
-    case 'planning':
+    case 'current_orbit':
       return [
         { field: 'desiredOutcome', label: 'Desired outcome' },
         { field: 'estimatedEffort', label: 'Estimated effort' },
+        { field: 'progress', label: 'Progress' },
       ]
-    case 'current_orbit':
-      return [{ field: 'progress', label: 'Progress' }]
     case 'completed':
       return [{ field: 'completionDate', label: 'Completion date' }]
-    case 'archived':
-      return []
   }
 }
 
@@ -80,9 +69,6 @@ export function planTransition(star: Star, to: StarStage): TransitionResult {
   if (to === 'completed' && !star.completionDate) {
     patch.completionDate = new Date().toISOString()
     patch.progress = 100
-  }
-  if (to === 'archived') {
-    patch.archivedAt = new Date().toISOString()
   }
   return {
     star: { ...star, ...patch },

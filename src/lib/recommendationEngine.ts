@@ -143,12 +143,12 @@ function scoreTask(
   return { task, star, score, reasons }
 }
 
-/** Candidate pool: tasks belonging to Current Orbit or Planning Stars only.
+/** Candidate pool: tasks belonging to Current Orbit Stars only.
  *  Someday / On the Horizon Stars never surface here — that's the
  *  anti-anxiety rule in §4, not an oversight. */
 function candidateTasks(stars: Star[], tasks: Task[]): { task: Task; star: Star }[] {
   const eligibleStars = new Map(
-    stars.filter((s) => s.stage === 'current_orbit' || s.stage === 'planning').map((s) => [s.id, s]),
+    stars.filter((s) => s.stage === 'current_orbit').map((s) => [s.id, s]),
   )
   return tasks
     .filter((t) => t.status !== 'done' && eligibleStars.has(t.starId))

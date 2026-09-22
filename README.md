@@ -1,98 +1,89 @@
 # Ad Astra
 
-**Phase 1: Core Universe** — the Star lifecycle, Current Orbit capacity
-guardrail, Constellations, hierarchical Tasks, the Dashboard context
-selector + recommendation engine, and Small Wins.
+A personal goals/life-tracking app built around **Stars** — every goal,
+project, trip, or reading/learning ambition you have, moving through one
+lifecycle: **Someday → On the Horizon → Current Orbit → Completed**, with
+free movement back to any earlier stage whenever you want.
 
-**Phase 2: Travel** (spec §17, restructured) — every travel aspiration is
-a Trip; there's no separate destinations list. A lone someday idea is
-just a Trip with one Planet (a country/region/city, carrying why/season/
-cost/companions/life-stage tags); a multi-place trip groups several
-Planets, each with its own Moons (whatever's inside it — another city, an
-attraction, a meal, a transfer).
+## The 4 tabs
 
-**Phase 3: Reading & Watching** (spec §19, extended) — a personal library
-(books) and a parallel movies/TV framework (watchables), each with
-multi-membership lists, a log that updates status/rating on completion,
-and time-boxed challenges with live progress bars. TV shows get
-episode-level tracking. Reading also has a StoryGraph-style Insights tab
-— see "Reading stats" below.
+1. **Dashboard** — the mood/context-based suggestion engine, your Current
+   Orbit Stars, everything currently "in progress" across the Library and
+   Bucket List (with inline mark-complete / log-progress actions), and
+   "Give me a small win."
+2. **Universe** — a map of your Constellations and Current Orbit Stars,
+   a list of exactly what's on that map, and a "See all Stars" link to
+   the full list across every stage. Opening a Star shows its Planets &
+   Moons, its linked Library/Bucket-List items, and lets you move it
+   through the lifecycle or delete it.
+3. **Bucket List** — everything you'd like to do someday, in 4
+   categories: Travel Destinations, Books to Read, Shows to Watch, Movies
+   to Watch. Each item has a status (Backlog → In Progress → Completed)
+   and free-form, category-specific tags.
+4. **Library** — three sub-tabs: **Currently Reading**, **My Library**
+   (a bookshelf view of everything you own, with a link to books you
+   want but don't own yet), and **Metrics** (a dynamic chart builder over
+   your reading logs).
 
-**Phase 4: Learning** — free-form goals ("Learn French," "Learn piano,"
-"Refinery details for work") with free-entry sub-goals and tasks nested
-under them (Planets & Moons). No type enum and no metrics, unlike Travel/
-Reading — just a planned/in_progress/completed status at both the goal
-and item level.
+## Stars, Planets & Moons
 
-## Planets & Moons
+A Star is the single "goal" concept in the app — a trip, a reading
+project, a piece of learning, a creative project, anything. There's no
+separate Trip/Learning-goal/Project table anymore: they're all just
+Stars, distinguished by `category` (`travel`, `learning`, `creative`,
+`home`, `business`, `reading`, `health`, `relationship`, `other`).
 
-A cross-domain vocabulary for how a Star's goal decomposes:
+Every Star has its own free-form **Planets & Moons** — arbitrarily
+nested sub-goals and tasks (`tasks` table, self-referencing via
+`parent_task_id`; a top-level task is a Planet, anything nested under
+one is a Moon). No type field, no required structure — just a name,
+optional notes/estimate, and a todo/in_progress/done status.
 
-- **Tasks** (Phase 1) — a top-level task is a "Planet," anything nested
-  under it a "Moon" (`StarDetail.tsx`, `TaskList.tsx`); the data model is
-  unchanged (still arbitrary-depth `parentTaskId` nesting).
-- **Travel** (Phase 2) — a trip's own top-level `trip_items` (no
-  `parent_item_id`) are its Planets; anything nested under one is a Moon.
-  Either tier can be any type (`country`/`region`/`city`/`attraction`/
-  `activity`/`restaurant`/`hotel`/`transportation`) — nesting depth, not
-  the type value, is what makes something a Planet vs. a Moon. See
-  `src/features/travel/TripItemList.tsx`.
-- **Reading & Watching** (Phase 3) — a Book or Watchable linked to a Star
-  via `relatedStarIds` is that Star's Planet. TV shows go one level
-  deeper: `episodes` are a tv_show's Moons, each with its own
-  watched/unwatched state (`src/features/watching/EpisodeList.tsx`).
-  Books don't have an equivalent Moon tier — chapters weren't worth
-  tracking.
-- **Learning** (Phase 4) — a goal's own top-level `learning_items` (no
-  `parent_item_id`) are its Planets (sub-goals); anything nested under
-  one is a Moon (a specific task or session). Completely free-form — no
-  type field, just a name, optional notes, and status. See
-  `src/features/learning/LearningItemList.tsx`.
+Stars connect to each other two ways:
+- **Constellations** — group related Stars together (`constellations.star_ids`).
+- **Linked items** — a Library book or Bucket List item can be attached
+  to a Star via its own `related_star_ids` (see `StarLinkedItems.tsx`).
+  The relationship lives on the item, not the Star, so an item can link
+  to more than one Star.
 
-## Auto-managed Stars
+## Library
 
-Beyond the manual `relatedStarIds` linking above, some things get a Star
-automatically as they progress, via `src/lib/autoStars.ts` and the sync
-logic in `useAdAstra.ts` (`linked_star_id` on trips/books/book_lists/
-watchables/watch_lists/learning_goals — separate from `related_star_ids`,
-which is still free for manual links):
+`books` is the single source of truth for every book you own, have
+read, or want to read — `ownership` (own/library/tbd), `format`
+(kindle/audio/print/tbd), `genre`, `totalPages`/`totalMinutes`,
+`readStatus` (want_to_read/reading/read/dnf), rating, notes, tags.
 
-- **Trips**: `idea` → no Star; `planning` → Star at `planning`; `booked`
-  → Star in `current_orbit`; `completed`/`archived` follow suit. Moving
-  back to `idea` deletes the auto-created Star.
-- **Books / Watchables**: `want_to_read`/`want_to_watch` → no Star;
-  `reading`/`watching` → Star in `current_orbit`; finishing (or DNF-ing)
-  → Star at `completed`.
-- **Book lists / Watch lists**: always get a Star at `on_the_horizon` the
-  moment the list is created — a standing goal, not tied to a status.
-- **Learning goals**: `planned` → no Star; `in_progress` → Star in
-  `current_orbit`; `completed` → Star at `completed`. Moving back to
-  `planned` deletes the auto-created Star.
+`reading_logs` is a pure daily-progress log — you log **one** raw
+progress marker per entry (current page, % complete, or audiobook
+position in minutes) plus optionally how long you spent reading. Rating
+and read status live on the book itself, not per log entry.
+`src/lib/readingStats.ts` derives everything else — pages read, reading
+speed, streaks, breakdowns — from that log; nothing is typed in as a
+precomputed stat.
 
-This bypasses the interactive Current-Orbit capacity prompt on purpose —
-popping that modal as a side effect of logging a reading session would be
-jarring. Auto-linked Stars just add to the orbit silently, so the 5-star
-default cap can end up exceeded without a warning if you're mid-book on
-several things and mid-trip at once. Worth knowing.
+## Bucket List
 
-## Reading stats
+`bucket_list_items` covers all 4 categories. Travel destinations are
+pure ideas (no other table covers them). A book/show/movie idea can
+optionally link to a promoted `books`/`watchables` row (`book_id` /
+`watchable_id`) once you actually start tracking it richly there — until
+then it's just a lightweight idea with a status and tags.
 
-`src/lib/readingStats.ts` derives everything from the log — you never
-type in "pages read this session." Logging a session records one raw
-progress marker (current page, % complete, or audiobook position in
-minutes) plus optionally how long you spent reading; `deriveSessions()`
-converts that into pages via the book's `totalPages`/`totalMinutes` and
-diffs against the book's previous session to get pages-read-this-session
-and reading speed (pages/hour). The Insights tab
-(`src/features/reading/ReadingInsights.tsx`) charts pages/books per day,
-month, and day-of-week, plus format/source/genre breakdowns — all with
-plain bar-style visuals (no charting library, to avoid an unverified new
-dependency in an environment where `npm install` can't be run).
+## Watching
 
-Deliberately **not** styled — you said you'd bring an icon and color
-scheme later, so this uses plain neutral Tailwind utilities purely for
-layout. Swapping in a real look later means editing classes/tokens, not
-restructuring components.
+`watchables` + `episodes` (a tv_show's episodes are its Moons) +
+`viewing_sessions` — unchanged in spirit from before, just trimmed of
+the old auto-Star column and WatchList/WatchChallenge tables (a
+watch-related goal is just a Star now).
+
+## Dynamic chart builder
+
+`chart_configs` stores one row per saved chart on a named view (chart
+type, x-axis, y-axis, title). The Metrics sub-tab of Library lets you
+pick a chart type (bar/line/scatter/pie) and an x/y axis from your
+reading data and save it to your default view; `app_settings.
+reading_metrics_timeframe` remembers your last-picked timeframe across
+sessions.
 
 ## Running it
 
@@ -101,82 +92,44 @@ npm install
 npm run dev
 ```
 
-Data is stored in `localStorage` for now (see "Data layer" below), so it
-runs with zero setup and nothing to configure.
-
-## What's implemented
-
-- **Star lifecycle** (`src/lib/starLifecycle.ts`) — the six-stage state
-  machine (Someday → On the Horizon → Planning → Current Orbit →
-  Completed → Archived), which moves are allowed, and which fields are
-  *suggested* (never required) at each stage.
-- **Current Orbit guardrail** (`src/lib/currentOrbit.ts`) — warns at the
-  configured limit (default 5), with Abort / Override / Replace, exactly
-  as in spec §4. Replace preserves the outgoing Star's tasks/progress/notes;
-  it only changes its stage. Auto-linked Stars (see above) bypass this.
-- **Constellations** — group Stars, with a target-date deadline that
-  boosts the relevance of member Stars' tasks as the date approaches
-  (spec §6).
-- **Tasks** (`src/features/tasks/TaskList.tsx`) — arbitrarily nested
-  subtasks ("Planets"/"Moons" in the UI), inline add, status toggle.
-- **Dashboard** (`src/features/dashboard/Dashboard.tsx`) — the mood/context
-  selector (activity type, time, energy, location, device, effort) feeding
-  `src/lib/recommendationEngine.ts`, plus "Give me a small win" (≤15 min
-  tasks).
-- **Universe** (`src/features/universe/`) — list view grouped by stage, and
-  a simple SVG "map" view (ring = stage, click a star to open it).
-- **Travel** (`src/features/travel/`) — a single Trips list (idea →
-  planning → booked → completed), each with an inline Planets/Moons
-  itinerary editor. Creating a trip can optionally seed its first Planet
-  in the same step, for a lone someday idea.
-- **Reading** (`src/features/reading/`) — Library (want to read → reading
-  → read/DNF, with format/source/total-length fields), Lists, Challenges,
-  and an Insights tab (see "Reading stats" above). Logging a session as
-  "finished" or "DNF" updates the book's status and rating automatically.
-- **Watching** (`src/features/watching/`) — the same structure as Reading,
-  for movies and TV shows, plus per-episode tracking for TV (a show's
-  Moons).
-- **Learning** (`src/features/learning/`) — free-form Goals, each with an
-  inline Planets/Moons editor for sub-goals and tasks (no type field, no
-  metrics — just planned/in_progress/completed). Creating a goal can
-  optionally seed its first Planet in the same step.
-
-## Known gaps / choices worth knowing about
-
-- **Task context tags** (`activityType`, `suitableLocations`, etc.) aren't
-  in the spec's §7 field list — I added them so the recommendation engine
-  has something real to match against instead of guessing. They're all
-  optional; an untagged task just participates less precisely.
-- **Overload detection** (`isOverloaded` in `currentOrbit.ts`) is a coarse
-  heuristic for now — a Star counts as stalled if it's been in Current
-  Orbit >14 days with <10% progress, approximated from `updated_at` since
-  there's no stage-history table yet. Worth revisiting if the heuristic
-  feels off in practice, especially now that auto-linked Stars add to
-  Current Orbit more often.
-- Celebration on task completion is a one-line toast — the spec wants a
-  proper positive-reinforcement moment, which I'd rather build once we
-  have the real visual language.
-- A Planet doesn't carry its own `relatedStarIds`/`relatedConstellationIds`
-  (only the Trip itself does) — simpler, and no request has needed
-  per-Planet linking yet. Easy to add later if that changes.
+Data is stored in `localStorage` by default — zero setup, nothing to
+configure. Set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see
+DEPLOY.md) to switch to Supabase and sync across devices; `AuthGate`
+swaps the store in after sign-in.
 
 ## Data layer
 
 Every screen goes through `src/lib/db/index.ts`, which exports a single
-`db: AdAstraStore` (`src/lib/db/types.ts`). Two implementations exist:
+`db: AdAstraStore` (`src/lib/db/types.ts`). Two implementations exist —
+`LocalStore` (`localStorage`) and `SupabaseStore`
+(`@supabase/supabase-js`) — and every component/hook is storage-agnostic.
+Adding a table means adding it to `AdAstraStore` and both
+implementations, nothing else.
 
-- `LocalStore` (`localStorage`) — the default, zero-setup mode.
-- `SupabaseStore` (`@supabase/supabase-js`) — used automatically once
-  `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are set (see DEPLOY.md);
-  `AuthGate` swaps the store in after sign-in.
+Run migrations `0001` through `0003`, in order, against a fresh Supabase
+project (`supabase/migrations/`):
+- `0001_core_universe.sql` — Stars, Constellations, Tasks, Settings
+- `0002_watching.sql` — Watchables, Episodes, Viewing Sessions
+- `0003_library_bucketlist_charts.sql` — Books, Reading Logs, Bucket List, Chart Configs
 
-Run migrations `0001` through `0009`, in order, against a fresh Supabase
-project (`supabase/migrations/`). Components, hooks, and the lifecycle/
-recommendation logic are all storage-agnostic — adding a table means
-adding it to `AdAstraStore` and both implementations, nothing else.
+## History
 
-## Next up (Phase 5+)
+This is a from-scratch redesign (internally "Phase 6") that replaced an
+earlier version with separate Travel/Reading/Watching/Learning/Goals
+tabs and an auto-managed "linked Star" system. That system is gone
+entirely — every domain goal collapsed into Stars directly, which is why
+the migration numbering restarts at a clean `0001`.
 
-Relax & Woo-Woo — adds tables that reference `stars`/`constellations`
-rather than touching this schema, same pattern as Travel/Reading/
-Watching/Learning above.
+## Known gaps / choices worth knowing about
+
+- **Task context tags** (`activityType`, `suitableLocations`, etc. on
+  `tasks`) power the Dashboard's recommendation engine; they're all
+  optional, so an untagged task just participates less precisely.
+- **Overload detection** (`isOverloaded` in `currentOrbit.ts`) is a
+  coarse heuristic — a Star counts as stalled if it's been in Current
+  Orbit >14 days with <10% progress, approximated from `updated_at`
+  since there's no stage-history table.
+- Bucket List and Library UIs (collapsible category sections, bookshelf
+  view, dynamic chart builder) are still placeholders as of this
+  writing — Dashboard and Universe are fully built; Bucket List/Library
+  are the next stage of this redesign.

@@ -65,10 +65,10 @@ export function resolveCapacityChoice(
       return [{ starId: incomingStarId, stage: 'current_orbit' }]
     case 'replace':
       if (!outgoingStarId) {
-        throw new Error('replace requires an outgoing star to move back to planning')
+        throw new Error('replace requires an outgoing star to move back to on_the_horizon')
       }
       return [
-        { starId: outgoingStarId, stage: 'planning' },
+        { starId: outgoingStarId, stage: 'on_the_horizon' },
         { starId: incomingStarId, stage: 'current_orbit' },
       ]
   }
