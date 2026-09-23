@@ -101,8 +101,30 @@ export default function App() {
             onUpdateBucketListItem={adAstra.updateBucketListItem}
           />
         )}
-        {tab === 'bucketlist' && <BucketList />}
-        {tab === 'library' && <Library />}
+        {tab === 'bucketlist' && (
+          <BucketList
+            items={adAstra.bucketListItems}
+            onCreate={adAstra.createBucketListItem}
+            onUpdate={adAstra.updateBucketListItem}
+            onDelete={adAstra.deleteBucketListItem}
+          />
+        )}
+        {tab === 'library' && (
+          <Library
+            books={adAstra.books}
+            readingLogs={adAstra.readingLogs}
+            chartConfigs={adAstra.chartConfigs}
+            metricsTimeframe={adAstra.settings.readingMetricsTimeframe}
+            onCreateBook={adAstra.createBook}
+            onUpdateBook={adAstra.updateBook}
+            onDeleteBook={adAstra.deleteBook}
+            onCreateReadingLog={adAstra.createReadingLog}
+            onChangeTimeframe={(t) => adAstra.updateSettings({ readingMetricsTimeframe: t })}
+            onCreateChart={adAstra.createChartConfig}
+            onUpdateChart={adAstra.updateChartConfig}
+            onDeleteChart={adAstra.deleteChartConfig}
+          />
+        )}
       </main>
 
       {adAstra.capacityPrompt && (
