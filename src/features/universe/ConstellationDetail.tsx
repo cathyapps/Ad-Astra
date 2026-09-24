@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import type { Constellation, Star } from '@/types'
+import { EditButton } from '@/features/shared/EditButton'
+import { BottomSheet } from '@/features/shared/BottomSheet'
 
 const inputClass =
   'mt-1 w-full border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60'
 
 interface FormProps {
+  initial?: Partial<Constellation>
   onSave: (input: Partial<Constellation> & { name: string }) => void
   onCancel: () => void
 }
 
-export function ConstellationForm({ onSave, onCancel }: FormProps) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
+export function ConstellationForm({ initial, onSave, onCancel }: FormProps) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
 
   return (
     <form
@@ -80,6 +83,7 @@ export function ConstellationDetail({
   onSelectStar,
   onClose,
 }: DetailProps) {
+  const [editing, setEditing] = useState(false)
   const memberIds = new Set(constellation.starIds)
 
   function toggle(starId: string) {
@@ -93,7 +97,10 @@ export function ConstellationDetail({
     <div className="border border-hairline rounded-xl p-4 space-y-4 bg-card">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="font-display text-lg text-moon">{constellation.name}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-lg text-moon">{constellation.name}</h2>
+            <EditButton onClick={() => setEditing(true)} label="Edit constellation" />
+          </div>
           {constellation.description && (
             <p className="text-sm text-moon-dim mt-1">{constellation.description}</p>
           )}
@@ -144,6 +151,19 @@ export function ConstellationDetail({
       <button className="text-xs text-moon-dim hover:text-red-400 transition-colors" onClick={onDelete}>
         Delete constellation
       </button>
+
+      {editing && (
+        <BottomSheet title="Edit constellation" onClose={() => setEditing(false)}>
+          <ConstellationForm
+            initial={constellation}
+            onSave={(patch) => {
+              onUpdate(patch)
+              setEditing(false)
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        </BottomSheet>
+      )}
     </div>
   )
 }

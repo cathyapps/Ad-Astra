@@ -3,11 +3,13 @@ import type { Constellation, Star, StarStage, Task } from '@/types'
 import type { Book } from '@/types/library'
 import type { BucketListItem } from '@/types/bucketList'
 import { StarMap } from './StarMap'
+import { InOrbitStars } from './InOrbitStars'
 import { OrbitList } from './OrbitList'
 import { UniverseLists } from './UniverseLists'
 import { ConstellationForm, ConstellationDetail } from './ConstellationDetail'
 import { StarForm } from '@/features/stars/StarForm'
 import { StarDetail } from '@/features/stars/StarDetail'
+import { BottomSheet } from '@/features/shared/BottomSheet'
 
 interface Props {
   stars: Star[]
@@ -21,6 +23,7 @@ interface Props {
   onMoveStar: (id: string, to: StarStage) => void
   onCreateTask: (input: Partial<Task> & { starId: string; name: string }) => void
   onUpdateTask: (id: string, patch: Partial<Task>) => void
+  onDeleteTask: (id: string) => void
   onCreateConstellation: (input: Partial<Constellation> & { name: string }) => void
   onUpdateConstellation: (id: string, patch: Partial<Constellation>) => void
   onDeleteConstellation: (id: string) => void
@@ -40,6 +43,7 @@ export function Universe({
   onMoveStar,
   onCreateTask,
   onUpdateTask,
+  onDeleteTask,
   onCreateConstellation,
   onUpdateConstellation,
   onDeleteConstellation,
@@ -51,6 +55,7 @@ export function Universe({
   const [showStarForm, setShowStarForm] = useState(false)
   const [showConstellationForm, setShowConstellationForm] = useState(false)
   const [showAllStars, setShowAllStars] = useState(false)
+  const [showCurrentView, setShowCurrentView] = useState(false)
 
   const selectedStar = stars.find((s) => s.id === selectedStarId)
   const selectedConstellation = constellations.find((c) => c.id === selectedConstellationId)
@@ -84,30 +89,6 @@ export function Universe({
         </div>
       </div>
 
-      {showStarForm && (
-        <div className="border border-hairline rounded-xl p-4 bg-card">
-          <StarForm
-            onCancel={() => setShowStarForm(false)}
-            onSave={(input) => {
-              onCreateStar(input)
-              setShowStarForm(false)
-            }}
-          />
-        </div>
-      )}
-
-      {showConstellationForm && (
-        <div className="border border-hairline rounded-xl p-4 bg-card">
-          <ConstellationForm
-            onCancel={() => setShowConstellationForm(false)}
-            onSave={(input) => {
-              onCreateConstellation(input)
-              setShowConstellationForm(false)
-            }}
-          />
-        </div>
-      )}
-
       {selectedStar && (
         <StarDetail
           star={selectedStar}
@@ -118,6 +99,7 @@ export function Universe({
           onUpdate={(patch) => onUpdateStar(selectedStar.id, patch)}
           onCreateTask={onCreateTask}
           onUpdateTask={onUpdateTask}
+          onDeleteTask={onDeleteTask}
           onUpdateBook={onUpdateBook}
           onUpdateBucketListItem={onUpdateBucketListItem}
           onDelete={() => {
@@ -145,8 +127,33 @@ export function Universe({
       <StarMap stars={stars} constellations={constellations} onSelect={selectStar} selectedId={selectedStarId} />
 
       <div>
+        <h3 className="text-xs uppercase tracking-wide text-moon-dim mb-2">In Orbit</h3>
+        <InOrbitStars stars={stars} onSelect={selectStar} selectedId={selectedStarId} />
+      </div>
+
+      <div>
+        <button
+          className="text-xs text-cosmic hover:text-moon transition-colors"
+          onClick={() => setShowCurrentView((v) => !v)}
+        >
+          {showCurrentView ? 'Hide current view' : 'Show current view (grouped by constellation)'}
+        </button>
+        {showCurrentView && (
+          <div className="mt-2">
+            <OrbitList
+              stars={stars}
+              constellations={constellations}
+              onSelect={selectStar}
+              onSelectConstellation={selectConstellation}
+              selectedId={selectedStarId}
+            />
+          </div>
+        )}
+      </div>
+
+      <div>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs uppercase tracking-wide text-moon-dim">In Orbit</h3>
+          <h3 className="text-xs uppercase tracking-wide text-moon-dim">All Stars</h3>
           <button
             className="text-xs text-cosmic hover:text-moon transition-colors"
             onClick={() => setShowAllStars((v) => !v)}
@@ -154,20 +161,31 @@ export function Universe({
             {showAllStars ? 'Hide' : 'See all Stars'}
           </button>
         </div>
-        <OrbitList
-          stars={stars}
-          constellations={constellations}
-          onSelect={selectStar}
-          onSelectConstellation={selectConstellation}
-          selectedId={selectedStarId}
-        />
+        {showAllStars && <UniverseLists stars={stars} onSelect={selectStar} selectedId={selectedStarId} />}
       </div>
 
-      {showAllStars && (
-        <div>
-          <h3 className="text-xs uppercase tracking-wide text-moon-dim mb-2">All Stars</h3>
-          <UniverseLists stars={stars} onSelect={selectStar} selectedId={selectedStarId} />
-        </div>
+      {showStarForm && (
+        <BottomSheet title="New star" onClose={() => setShowStarForm(false)}>
+          <StarForm
+            onCancel={() => setShowStarForm(false)}
+            onSave={(input) => {
+              onCreateStar(input)
+              setShowStarForm(false)
+            }}
+          />
+        </BottomSheet>
+      )}
+
+      {showConstellationForm && (
+        <BottomSheet title="New constellation" onClose={() => setShowConstellationForm(false)}>
+          <ConstellationForm
+            onCancel={() => setShowConstellationForm(false)}
+            onSave={(input) => {
+              onCreateConstellation(input)
+              setShowConstellationForm(false)
+            }}
+          />
+        </BottomSheet>
       )}
     </div>
   )

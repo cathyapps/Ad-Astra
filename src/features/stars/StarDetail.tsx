@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Star, StarStage, Task } from '@/types'
 import type { Book } from '@/types/library'
 import type { BucketListItem } from '@/types/bucketList'
@@ -5,6 +6,9 @@ import { ALLOWED_STAGES } from './allowedStages'
 import { StageBadge, STAGE_LABELS } from './stageLabels'
 import { TaskList } from '@/features/tasks/TaskList'
 import { StarLinkedItems } from './StarLinkedItems'
+import { EditButton } from '@/features/shared/EditButton'
+import { BottomSheet } from '@/features/shared/BottomSheet'
+import { StarForm } from './StarForm'
 
 interface Props {
   star: Star
@@ -15,6 +19,7 @@ interface Props {
   onUpdate: (patch: Partial<Star>) => void
   onCreateTask: (input: Partial<Task> & { starId: string; name: string }) => void
   onUpdateTask: (id: string, patch: Partial<Task>) => void
+  onDeleteTask?: (id: string) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
   onUpdateBucketListItem: (id: string, patch: Partial<BucketListItem>) => void
   onDelete: () => void
@@ -30,11 +35,13 @@ export function StarDetail({
   onUpdate,
   onCreateTask,
   onUpdateTask,
+  onDeleteTask,
   onUpdateBook,
   onUpdateBucketListItem,
   onDelete,
   onClose,
 }: Props) {
+  const [editing, setEditing] = useState(false)
   const options = ALLOWED_STAGES[star.stage]
   const starTasks = tasks.filter((t) => t.starId === star.id)
   const done = starTasks.filter((t) => t.status === 'done').length
@@ -43,7 +50,10 @@ export function StarDetail({
     <div className="border border-hairline rounded-xl p-4 space-y-4 bg-card">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="font-display text-lg text-moon">{star.name}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-lg text-moon">{star.name}</h2>
+            <EditButton onClick={() => setEditing(true)} label="Edit star" />
+          </div>
           <div className="flex items-center gap-2 mt-1.5">
             <StageBadge stage={star.stage} />
             {star.category && <span className="text-xs text-moon-dim">{star.category}</span>}
@@ -89,7 +99,13 @@ export function StarDetail({
             {done}/{starTasks.length} done
           </span>
         </div>
-        <TaskList starId={star.id} tasks={starTasks} onCreate={onCreateTask} onUpdate={onUpdateTask} />
+        <TaskList
+          starId={star.id}
+          tasks={starTasks}
+          onCreate={onCreateTask}
+          onUpdate={onUpdateTask}
+          onDelete={onDeleteTask}
+        />
       </div>
 
       <div>
@@ -106,6 +122,20 @@ export function StarDetail({
       <button className="text-xs text-moon-dim hover:text-red-400 transition-colors" onClick={onDelete}>
         Delete star
       </button>
+
+      {editing && (
+        <BottomSheet title="Edit star" onClose={() => setEditing(false)}>
+          <StarForm
+            initial={star}
+            defaultStage={star.stage}
+            onSave={(patch) => {
+              onUpdate(patch)
+              setEditing(false)
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        </BottomSheet>
+      )}
     </div>
   )
 }

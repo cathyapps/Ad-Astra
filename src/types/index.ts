@@ -70,6 +70,21 @@ export interface Constellation {
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done'
 
+// Planets & Moons (Tasks) come in three flavors (user-requested, Phase 7):
+//  - habit: a target frequency to hit repeatedly (e.g. "workout 3x/week")
+//  - recurring: done many times with no set cadence (e.g. "piano practice")
+//  - one_off: a single, one-time action (e.g. "download the app")
+// Undefined (legacy tasks created before this existed) behaves like one_off.
+export type TaskType = 'habit' | 'recurring' | 'one_off'
+export type HabitFrequencyKind = 'daily' | 'per_week' | 'per_month'
+
+export interface HabitFrequency {
+  kind: HabitFrequencyKind
+  // Only meaningful for per_week / per_month — "3x/week", "1x/month" etc.
+  // Daily habits don't need a count (it's implicitly 1x/day).
+  count?: number
+}
+
 // Dashboard "what are you in the mood for" context (§8)
 export type ActivityType = 'read' | 'watch' | 'listen' | 'learn' | 'create' | 'play' | 'relax'
 export type LocationContext = 'anywhere' | 'work' | 'home' | 'away_from_home'
@@ -104,6 +119,15 @@ export interface Task {
   suitableDevices?: DeviceContext[]
   requiredEffort?: EffortContext
   requiredEnergy?: EnergyContext
+
+  // Fully-configurable metadata (Phase 7): freeform categorization the
+  // suggestion engine can match on, and a type with optional target
+  // frequency. Prerequisites reuse `dependencyTaskIds` above — "this
+  // Planet/Moon can't start until these are done" is exactly what that
+  // field was for, it just wasn't wired up to any UI until now.
+  tags: string[]
+  taskType?: TaskType
+  habitFrequency?: HabitFrequency
 }
 
 export interface DashboardContext {

@@ -1,7 +1,7 @@
 // Small, explicit mappers rather than a generic case-converter — keeps the
 // exact column list visible and in sync with the migrations at a glance,
 // and avoids silently forwarding an unexpected field to Postgres.
-import type { AppSettings, Constellation, Star, Task } from '@/types'
+import type { AppSettings, Constellation, HabitFrequencyKind, Star, Task } from '@/types'
 import type { Book, ReadingLog } from '@/types/library'
 import type { BucketListItem } from '@/types/bucketList'
 import type { ChartConfig } from '@/types/charts'
@@ -115,6 +115,15 @@ export function taskFromRow(row: Record<string, unknown>): Task {
     suitableDevices: (row.suitable_devices as Task['suitableDevices']) ?? undefined,
     requiredEffort: (row.required_effort as Task['requiredEffort']) ?? undefined,
     requiredEnergy: (row.required_energy as Task['requiredEnergy']) ?? undefined,
+    tags: (row.tags as string[]) ?? [],
+    taskType: (row.task_type as Task['taskType']) ?? undefined,
+    habitFrequency:
+      row.habit_frequency_kind != null
+        ? {
+            kind: row.habit_frequency_kind as HabitFrequencyKind,
+            count: (row.habit_frequency_count as number) ?? undefined,
+          }
+        : undefined,
   }
 }
 
@@ -136,6 +145,12 @@ export function taskToRow(input: Partial<Task>, userId: string): Record<string, 
   if (input.suitableDevices !== undefined) row.suitable_devices = input.suitableDevices
   if (input.requiredEffort !== undefined) row.required_effort = input.requiredEffort
   if (input.requiredEnergy !== undefined) row.required_energy = input.requiredEnergy
+  if (input.tags !== undefined) row.tags = input.tags
+  if (input.taskType !== undefined) row.task_type = input.taskType
+  if (input.habitFrequency !== undefined) {
+    row.habit_frequency_kind = input.habitFrequency?.kind ?? null
+    row.habit_frequency_count = input.habitFrequency?.count ?? null
+  }
   return row
 }
 

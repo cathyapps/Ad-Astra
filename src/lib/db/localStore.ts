@@ -177,6 +177,9 @@ export class LocalStore implements AdAstraStore {
       suitableDevices: input.suitableDevices,
       requiredEffort: input.requiredEffort,
       requiredEnergy: input.requiredEnergy,
+      tags: input.tags ?? [],
+      taskType: input.taskType,
+      habitFrequency: input.habitFrequency,
     }
     write(KEYS.tasks, [...tasks, task])
     return task

@@ -94,6 +94,7 @@ export default function App() {
             onMoveStar={adAstra.moveStar}
             onCreateTask={adAstra.createTask}
             onUpdateTask={adAstra.updateTask}
+            onDeleteTask={adAstra.deleteTask}
             onCreateConstellation={adAstra.createConstellation}
             onUpdateConstellation={adAstra.updateConstellation}
             onDeleteConstellation={adAstra.deleteConstellation}

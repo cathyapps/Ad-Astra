@@ -127,6 +127,15 @@ function scoreTask(
     reasons.push(`${constellation.name} is coming up`)
   }
 
+  // Tag overlap between a Planet/Moon and its own Star is a cheap signal
+  // that the task is central to what the Star is actually about, not
+  // incidental busywork — a small nudge, not a hard filter.
+  const sharedTags = (task.tags ?? []).filter((t) => star.tags.includes(t))
+  if (sharedTags.length > 0) {
+    score += Math.min(12, sharedTags.length * 6)
+    reasons.push(`tagged ${sharedTags[0]}`)
+  }
+
   // Recency variety: nudge slightly toward tasks whose star hasn't been
   // touched very recently, without ever resurfacing dormant Someday Stars
   // (only current_orbit/planning tasks are candidates at all — see below).
