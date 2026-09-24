@@ -268,6 +268,13 @@ export function bookFromRow(row: Record<string, unknown>): Book {
     rating: (row.rating as number) ?? undefined,
     notes: (row.notes as string) ?? undefined,
     tags: (row.tags as string[]) ?? [],
+    isbn: (row.isbn as string) ?? undefined,
+    coverUrl: (row.cover_url as string) ?? undefined,
+    publisher: (row.publisher as string) ?? undefined,
+    publishYear: (row.publish_year as number) ?? undefined,
+    subjects: (row.subjects as string[]) ?? undefined,
+    openLibraryWorkKey: (row.open_library_work_key as string) ?? undefined,
+    externalMetadata: (row.external_metadata as Record<string, unknown>) ?? undefined,
     relatedStarIds: (row.related_star_ids as string[]) ?? [],
     startedAt: (row.started_at as string) ?? undefined,
     createdAt: row.created_at as string,
@@ -290,6 +297,13 @@ export function bookToRow(input: Partial<Book>, userId: string): Record<string, 
   if (input.rating !== undefined) row.rating = input.rating
   if (input.notes !== undefined) row.notes = input.notes
   if (input.tags !== undefined) row.tags = input.tags
+  if (input.isbn !== undefined) row.isbn = input.isbn
+  if (input.coverUrl !== undefined) row.cover_url = input.coverUrl
+  if (input.publisher !== undefined) row.publisher = input.publisher
+  if (input.publishYear !== undefined) row.publish_year = input.publishYear
+  if (input.subjects !== undefined) row.subjects = input.subjects
+  if (input.openLibraryWorkKey !== undefined) row.open_library_work_key = input.openLibraryWorkKey
+  if (input.externalMetadata !== undefined) row.external_metadata = input.externalMetadata
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
   if (input.startedAt !== undefined) row.started_at = input.startedAt
   if (input.completedAt !== undefined) row.completed_at = input.completedAt

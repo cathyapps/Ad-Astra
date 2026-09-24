@@ -43,15 +43,21 @@ export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog,
   return (
     <div className="border border-hairline rounded-xl p-4 space-y-4 bg-card">
       <div className="flex items-start justify-between">
-        <div>
-          <h2 className="font-display text-lg text-moon">{book.title}</h2>
-          <p className="text-sm text-moon-dim">{book.author}</p>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <ReadStatusBadge status={book.readStatus} />
-            <span className="text-xs text-moon-dim">
-              {book.ownership} · {book.format}
-            </span>
-            {book.genre && <span className="text-xs text-moon-dim">{book.genre}</span>}
+        <div className="flex items-start gap-3">
+          {book.coverUrl && (
+            <img src={book.coverUrl} alt="" className="w-12 h-[68px] object-cover rounded shrink-0 border border-hairline" />
+          )}
+          <div>
+            <h2 className="font-display text-lg text-moon">{book.title}</h2>
+            <p className="text-sm text-moon-dim">{book.author}</p>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <ReadStatusBadge status={book.readStatus} />
+              <span className="text-xs text-moon-dim">
+                {book.ownership} · {book.format}
+              </span>
+              {book.genre && <span className="text-xs text-moon-dim">{book.genre}</span>}
+              {book.totalPages != null && <span className="text-xs text-moon-dim">{book.totalPages}p</span>}
+            </div>
           </div>
         </div>
         <button className="text-sm text-moon-dim hover:text-moon" onClick={onClose}>

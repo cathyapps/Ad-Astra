@@ -28,12 +28,30 @@ export interface Book {
 
   // For turning a logged current-page / percent / audiobook-position into
   // a common "pages read" unit for stats. Either or both may be unknown.
+  // totalPages is always the PRINT edition's page count, even for
+  // kindle/audio copies — progress on those formats is logged as a
+  // percentage and converted to "pages" via this number, so everything
+  // ends up comparable in one unit.
   totalPages?: number
   totalMinutes?: number // audiobook runtime
 
   rating?: number // 1-5, set on completion
   notes?: string
   tags: string[]
+
+  // Populated when the book was added via the Open Library search
+  // (see src/lib/openLibrary.ts). All optional — a manually-entered book
+  // just won't have these. `externalMetadata` is a catch-all for
+  // whatever else Open Library returned that isn't one of the fields
+  // above/below — kept even though the app doesn't display all of it
+  // yet, since pulling it once now is free and re-fetching later isn't.
+  isbn?: string
+  coverUrl?: string
+  publisher?: string
+  publishYear?: number
+  subjects?: string[]
+  openLibraryWorkKey?: string
+  externalMetadata?: Record<string, unknown>
 
   relatedStarIds: string[]
 
