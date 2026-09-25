@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { HabitFrequencyKind, Task, TaskType } from '@/types'
-import { TagPicker } from '@/features/shared/TagPicker'
+import { TagsField } from '@/features/shared/TagsField'
+import { TaskAttributesSheet, type TaskAttributes } from './TaskAttributesSheet'
 
 const inputClass =
   'mt-1 w-full border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60'
@@ -18,6 +19,16 @@ const FREQUENCY_LABELS: Record<HabitFrequencyKind, string> = {
   per_month: 'X times per month',
 }
 
+function attributeSummary(a: TaskAttributes): string[] {
+  const out: string[] = []
+  if (a.activityType) out.push(a.activityType)
+  if (a.requiredEnergy) out.push(a.requiredEnergy.replace(/_/g, ' ') + ' energy')
+  if (a.requiredEffort) out.push(a.requiredEffort)
+  out.push(...a.suitableLocations)
+  out.push(...a.suitableDevices)
+  return out
+}
+
 interface Props {
   initial?: Partial<Task>
   isMoon: boolean
@@ -31,6 +42,7 @@ interface Props {
 export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave, onCancel, onDelete }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
+  const [isGoal, setIsGoal] = useState(initial?.isGoal ?? false)
   const [estimatedMinutes, setEstimatedMinutes] = useState(
     initial?.estimatedMinutes != null ? String(initial.estimatedMinutes) : '',
   )
@@ -43,9 +55,15 @@ export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave
     initial?.habitFrequency?.count != null ? String(initial.habitFrequency.count) : '3',
   )
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
-  const [dependencyTaskIds, setDependencyTaskIds] = useState<string[]>(
-    initial?.dependencyTaskIds ?? [],
-  )
+  const [dependencyTaskIds, setDependencyTaskIds] = useState<string[]>(initial?.dependencyTaskIds ?? [])
+  const [attributes, setAttributes] = useState<TaskAttributes>({
+    activityType: initial?.activityType,
+    suitableLocations: initial?.suitableLocations ?? [],
+    suitableDevices: initial?.suitableDevices ?? [],
+    requiredEffort: initial?.requiredEffort,
+    requiredEnergy: initial?.requiredEnergy,
+  })
+  const [showAttributes, setShowAttributes] = useState(false)
 
   const otherTasks = siblingTasks.filter((t) => t.id !== initial?.id)
 
@@ -62,7 +80,8 @@ export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave
         onSave({
           name: name.trim(),
           description: description || undefined,
-          estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : undefined,
+          isGoal,
+          estimatedMinutes: isGoal ? undefined : estimatedMinutes ? Number(estimatedMinutes) : undefined,
           dueDate: dueDate || undefined,
           taskType,
           habitFrequency:
@@ -71,6 +90,11 @@ export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave
               : undefined,
           tags,
           dependencyTaskIds,
+          activityType: attributes.activityType,
+          suitableLocations: attributes.suitableLocations.length ? attributes.suitableLocations : undefined,
+          suitableDevices: attributes.suitableDevices.length ? attributes.suitableDevices : undefined,
+          requiredEffort: attributes.requiredEffort,
+          requiredEnergy: attributes.requiredEnergy,
         })
       }}
     >
@@ -90,21 +114,42 @@ export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave
         <textarea className={inputClass} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
 
-      <div className="flex gap-3">
-        <label className={`${labelClass} flex-1`}>
-          Estimated minutes
-          <input
-            className={inputClass}
-            inputMode="numeric"
-            value={estimatedMinutes}
-            onChange={(e) => setEstimatedMinutes(e.target.value)}
-          />
-        </label>
-        <label className={`${labelClass} flex-1`}>
+      <label className="flex items-start gap-2.5 text-sm text-moon-dim">
+        <input
+          type="checkbox"
+          checked={isGoal}
+          onChange={(e) => setIsGoal(e.target.checked)}
+          className="accent-gold w-4 h-4 mt-0.5"
+        />
+        <span>
+          This is a goal, not a completable task — no time of its own (its sub-tasks carry the real time estimates,
+          and it's left out of "what should I do now" suggestions).
+        </span>
+      </label>
+
+      {!isGoal && (
+        <div className="flex gap-3">
+          <label className={`${labelClass} flex-1`}>
+            Estimated minutes
+            <input
+              className={inputClass}
+              inputMode="numeric"
+              value={estimatedMinutes}
+              onChange={(e) => setEstimatedMinutes(e.target.value)}
+            />
+          </label>
+          <label className={`${labelClass} flex-1`}>
+            Deadline
+            <input type="date" className={inputClass} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </label>
+        </div>
+      )}
+      {isGoal && (
+        <label className={labelClass}>
           Deadline
           <input type="date" className={inputClass} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </label>
-      </div>
+      )}
 
       <label className={labelClass}>
         Type
@@ -150,9 +195,39 @@ export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave
       <div>
         <span className={labelClass}>Tags</span>
         <div className="mt-1">
-          <TagPicker tags={tags} suggestions={tagSuggestions} onChange={setTags} />
+          <TagsField tags={tags} suggestions={tagSuggestions} onChange={setTags} />
         </div>
       </div>
+
+      {!isGoal && (
+        <div>
+          <span className={labelClass}>Suggestion engine attributes</span>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {attributeSummary(attributes).map((a) => (
+              <span key={a} className="text-xs border border-hairline rounded-full px-2.5 py-1 text-moon-dim capitalize">
+                {a}
+              </span>
+            ))}
+            <button
+              type="button"
+              className="text-xs text-cosmic hover:text-moon transition-colors"
+              onClick={() => setShowAttributes(true)}
+            >
+              + Add attributes
+            </button>
+          </div>
+          {showAttributes && (
+            <TaskAttributesSheet
+              value={attributes}
+              onClose={() => setShowAttributes(false)}
+              onSave={(next) => {
+                setAttributes(next)
+                setShowAttributes(false)
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {otherTasks.length > 0 && (
         <div>

@@ -15,6 +15,12 @@ export const BOOK_FORMAT_OPTIONS: BookFormat[] = ['kindle', 'audio', 'print', 't
 export type BookReadStatus = 'want_to_read' | 'reading' | 'read' | 'dnf'
 export const BOOK_READ_STATUS_ORDER: BookReadStatus[] = ['want_to_read', 'reading', 'read', 'dnf']
 
+// Book tags used to live on the Bucket List's now-removed "book"
+// category (books to read are tracked entirely here in the Library —
+// see the Bucket List redesign notes). Kept as a starter suggestion set
+// for the Library's own tag picker.
+export const BOOK_TAG_SUGGESTIONS = ['fiction', 'nonfiction', 'fantasy', 'sci-fi', 'memoir', 'mystery', 'classic']
+
 export interface Book {
   id: string
   title: string

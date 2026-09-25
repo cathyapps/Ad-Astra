@@ -108,6 +108,7 @@ export default function App() {
             onCreate={adAstra.createBucketListItem}
             onUpdate={adAstra.updateBucketListItem}
             onDelete={adAstra.deleteBucketListItem}
+            onCreateStar={adAstra.createStar}
           />
         )}
         {tab === 'library' && (

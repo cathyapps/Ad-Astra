@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Star, StarStage, Task } from '@/types'
+import type { Constellation, Star, StarStage, Task } from '@/types'
 import type { Book } from '@/types/library'
 import type { BucketListItem } from '@/types/bucketList'
 import { ALLOWED_STAGES } from './allowedStages'
@@ -15,6 +15,8 @@ interface Props {
   tasks: Task[]
   books: Book[]
   bucketListItems: BucketListItem[]
+  allStars: Star[] // for tag suggestions drawn from every star's tags
+  constellations: Constellation[]
   onMoveStage: (to: StarStage) => void
   onUpdate: (patch: Partial<Star>) => void
   onCreateTask: (input: Partial<Task> & { starId: string; name: string }) => void
@@ -22,6 +24,7 @@ interface Props {
   onDeleteTask?: (id: string) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
   onUpdateBucketListItem: (id: string, patch: Partial<BucketListItem>) => void
+  onUpdateConstellation: (id: string, patch: Partial<Constellation>) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -31,6 +34,8 @@ export function StarDetail({
   tasks,
   books,
   bucketListItems,
+  allStars,
+  constellations,
   onMoveStage,
   onUpdate,
   onCreateTask,
@@ -38,13 +43,36 @@ export function StarDetail({
   onDeleteTask,
   onUpdateBook,
   onUpdateBucketListItem,
+  onUpdateConstellation,
   onDelete,
   onClose,
 }: Props) {
   const [editing, setEditing] = useState(false)
+  const [pickingConstellations, setPickingConstellations] = useState(false)
+  const [constellationDraft, setConstellationDraft] = useState<string[]>([])
   const options = ALLOWED_STAGES[star.stage]
   const starTasks = tasks.filter((t) => t.starId === star.id)
   const done = starTasks.filter((t) => t.status === 'done').length
+  const tagSuggestions = Array.from(new Set(allStars.flatMap((s) => s.tags ?? [])))
+  const memberOf = constellations.filter((c) => c.starIds.includes(star.id))
+
+  function openConstellationPicker() {
+    setConstellationDraft(memberOf.map((c) => c.id))
+    setPickingConstellations(true)
+  }
+
+  function saveConstellations() {
+    for (const c of constellations) {
+      const shouldBeMember = constellationDraft.includes(c.id)
+      const isMember = c.starIds.includes(star.id)
+      if (shouldBeMember && !isMember) {
+        onUpdateConstellation(c.id, { starIds: [...c.starIds, star.id] })
+      } else if (!shouldBeMember && isMember) {
+        onUpdateConstellation(c.id, { starIds: c.starIds.filter((id) => id !== star.id) })
+      }
+    }
+    setPickingConstellations(false)
+  }
 
   return (
     <div className="border border-hairline rounded-xl p-4 space-y-4 bg-card">
@@ -54,9 +82,14 @@ export function StarDetail({
             <h2 className="font-display text-lg text-moon">{star.name}</h2>
             <EditButton onClick={() => setEditing(true)} label="Edit star" />
           </div>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <StageBadge stage={star.stage} />
             {star.category && <span className="text-xs text-moon-dim">{star.category}</span>}
+            {(star.tags ?? []).map((tag) => (
+              <span key={tag} className="text-[10px] border border-hairline rounded-full px-2 py-0.5 text-cosmic">
+                {tag}
+              </span>
+            ))}
           </div>
         </div>
         <button className="text-sm text-moon-dim hover:text-moon" onClick={onClose}>
@@ -91,6 +124,24 @@ export function StarDetail({
           />
         </label>
       )}
+
+      <div>
+        <h3 className="text-sm font-medium text-moon mb-2">Constellations</h3>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {memberOf.map((c) => (
+            <span key={c.id} className="text-xs border border-hairline rounded-full px-2.5 py-1 text-moon-dim">
+              {c.name}
+            </span>
+          ))}
+          <button
+            type="button"
+            className="text-xs text-cosmic hover:text-moon transition-colors"
+            onClick={openConstellationPicker}
+          >
+            + Add to constellation
+          </button>
+        </div>
+      </div>
 
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -128,12 +179,57 @@ export function StarDetail({
           <StarForm
             initial={star}
             defaultStage={star.stage}
+            tagSuggestions={tagSuggestions}
             onSave={(patch) => {
               onUpdate(patch)
               setEditing(false)
             }}
             onCancel={() => setEditing(false)}
           />
+        </BottomSheet>
+      )}
+
+      {pickingConstellations && (
+        <BottomSheet title="Add to constellation" onClose={() => setPickingConstellations(false)}>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5 max-h-72 overflow-y-auto">
+              {constellations.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() =>
+                    setConstellationDraft((d) => (d.includes(c.id) ? d.filter((id) => id !== c.id) : [...d, c.id]))
+                  }
+                  className={`text-xs border rounded-full px-2.5 py-1 transition-colors ${
+                    constellationDraft.includes(c.id)
+                      ? 'bg-cosmic text-night border-cosmic font-medium'
+                      : 'border-hairline text-moon-dim hover:text-moon'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
+              {constellations.length === 0 && (
+                <p className="text-xs text-moon-dim">No constellations yet — create one from the Universe screen.</p>
+              )}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                className="border border-hairline rounded-lg px-3 py-2 text-sm flex-1 text-moon hover:bg-card-hover transition-colors"
+                onClick={() => setPickingConstellations(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg px-3 py-2 text-sm flex-1 bg-gold text-night font-medium"
+                onClick={saveConstellations}
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </BottomSheet>
       )}
     </div>

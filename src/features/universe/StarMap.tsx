@@ -36,7 +36,15 @@ export function StarMap({ stars, constellations, onSelect, selectedId }: Props) 
 
       {constellations.map((c) => {
         const members = c.starIds.map((id) => byId.get(id)).filter((p): p is (typeof points)[number] => !!p)
-        if (members.length < 2) return null
+        if (members.length === 0) return null
+        const label = c.shortName?.trim()
+        // Label anchored above the topmost member of the cluster, offset
+        // further up so it clears both the stars and their connecting
+        // lines rather than sitting on top of either.
+        const minY = Math.min(...members.map((m) => m.y)) * size
+        const avgX = (members.reduce((sum, m) => sum + m.x, 0) / members.length) * size
+        const labelY = Math.max(10, minY - 10)
+        const labelWidth = label ? label.length * 5.4 + 10 : 0
         return (
           <g key={c.id}>
             {members.slice(1).map((p, i) => {
@@ -54,6 +62,22 @@ export function StarMap({ stars, constellations, onSelect, selectedId }: Props) 
                 />
               )
             })}
+            {label && (
+              <g>
+                <rect
+                  x={avgX - labelWidth / 2}
+                  y={labelY - 9}
+                  width={labelWidth}
+                  height={12}
+                  rx={3}
+                  fill="#070E2A"
+                  fillOpacity={0.75}
+                />
+                <text x={avgX} y={labelY} textAnchor="middle" fontSize={8.5} fill="#8891A8" letterSpacing={0.3}>
+                  {label}
+                </text>
+              </g>
+            )}
           </g>
         )
       })}

@@ -40,7 +40,7 @@ export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete
   const tasksById = new Map(tasks.map((t) => [t.id, t]))
 
   return (
-    <div style={{ marginLeft: depth * 14 }} className="space-y-1.5">
+    <div style={{ marginLeft: depth * 14, width: `calc(100% - ${depth * 14}px)` }} className="space-y-1.5 min-w-0">
       {children.map((t) => {
         const blockedBy = (t.dependencyTaskIds ?? [])
           .map((id) => tasksById.get(id))
@@ -56,12 +56,16 @@ export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete
                 className="accent-gold w-4 h-4"
               />
               <span
-                className={`text-sm flex-1 ${t.status === 'done' ? 'line-through text-moon-dim' : 'text-moon'}`}
+                className={`text-sm flex-1 min-w-0 truncate ${t.status === 'done' ? 'line-through text-moon-dim' : 'text-moon'}`}
               >
                 {t.name}
               </span>
-              {t.estimatedMinutes != null && (
-                <span className="text-xs text-moon-dim">{t.estimatedMinutes}m</span>
+              {t.isGoal ? (
+                <span className="text-[10px] uppercase tracking-wide text-moon-dim shrink-0">goal</span>
+              ) : (
+                t.estimatedMinutes != null && (
+                  <span className="text-xs text-moon-dim shrink-0">{t.estimatedMinutes}m</span>
+                )
               )}
               <EditButton onClick={() => setEditingTask(t)} label={depth === 0 ? 'Edit planet' : 'Edit moon'} />
             </div>
@@ -106,7 +110,7 @@ export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete
       })}
 
       <form
-        className="flex gap-2 pt-1"
+        className="flex gap-2 pt-1 min-w-0"
         onSubmit={(e) => {
           e.preventDefault()
           if (!newName.trim()) return
@@ -121,13 +125,13 @@ export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete
         }}
       >
         <input
-          className="flex-1 border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon placeholder:text-moon-dim/60"
+          className="flex-1 min-w-0 border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon placeholder:text-moon-dim/60"
           placeholder={depth === 0 ? 'Add a planet…' : 'Add a moon…'}
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
         />
         <input
-          className="w-14 border border-hairline bg-night rounded-lg px-2 py-1.5 text-sm text-moon"
+          className="w-14 shrink-0 border border-hairline bg-night rounded-lg px-2 py-1.5 text-sm text-moon"
           placeholder="min"
           inputMode="numeric"
           value={newMinutes}
@@ -135,7 +139,7 @@ export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete
         />
         <button
           type="submit"
-          className="border border-hairline rounded-lg px-3 py-1.5 text-sm text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
+          className="border border-hairline rounded-lg px-3 py-1.5 text-sm text-moon-dim hover:text-moon hover:bg-card-hover transition-colors shrink-0"
         >
           Add
         </button>

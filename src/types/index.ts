@@ -56,6 +56,7 @@ export interface Star {
 export interface Constellation {
   id: string
   name: string
+  shortName?: string // shown on the Universe map next to the constellation's lines instead of the full name
   description?: string
   coverImage?: string
   starIds: string[]
@@ -128,6 +129,14 @@ export interface Task {
   tags: string[]
   taskType?: TaskType
   habitFrequency?: HabitFrequency
+
+  // A top-level goal (e.g. "exercise more") isn't itself a completable
+  // action with a duration — its sub-tasks are (e.g. "30 min barre
+  // workout, 3x/week"). Marking it as a goal clears/hides
+  // estimatedMinutes and keeps it out of the suggestion engine entirely,
+  // rather than it silently competing for a "what should I do right
+  // now" slot with nothing to actually go do.
+  isGoal?: boolean
 }
 
 export interface DashboardContext {

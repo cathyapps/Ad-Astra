@@ -14,6 +14,7 @@ interface FormProps {
 
 export function ConstellationForm({ initial, onSave, onCancel }: FormProps) {
   const [name, setName] = useState(initial?.name ?? '')
+  const [shortName, setShortName] = useState(initial?.shortName ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
 
   return (
@@ -22,7 +23,7 @@ export function ConstellationForm({ initial, onSave, onCancel }: FormProps) {
       onSubmit={(e) => {
         e.preventDefault()
         if (!name.trim()) return
-        onSave({ name: name.trim(), description: description || undefined })
+        onSave({ name: name.trim(), shortName: shortName.trim() || undefined, description: description || undefined })
       }}
     >
       <div>
@@ -33,6 +34,16 @@ export function ConstellationForm({ initial, onSave, onCancel }: FormProps) {
           placeholder="e.g. Becoming a better cook"
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="text-sm block text-moon-dim">Short name (shown on the Universe map)</label>
+        <input
+          className={inputClass}
+          placeholder="e.g. Cooking"
+          maxLength={16}
+          value={shortName}
+          onChange={(e) => setShortName(e.target.value)}
         />
       </div>
       <label className="text-sm block text-moon-dim">
@@ -72,9 +83,10 @@ interface DetailProps {
   onClose: () => void
 }
 
-/** Connecting Stars together: toggle any Star's membership in this
- *  Constellation. Membership is just `starIds` on the Constellation —
- *  a Star can belong to more than one. */
+/** Connecting Stars together: a Constellation's membership is just
+ *  `starIds` — a Star can belong to more than one. Only the current
+ *  members show up in the main view as badges; picking members happens
+ *  in the "+ Add stars" sheet instead of an always-visible toggle list. */
 export function ConstellationDetail({
   constellation,
   stars,
@@ -84,13 +96,13 @@ export function ConstellationDetail({
   onClose,
 }: DetailProps) {
   const [editing, setEditing] = useState(false)
-  const memberIds = new Set(constellation.starIds)
+  const [pickingStars, setPickingStars] = useState(false)
+  const [draft, setDraft] = useState<string[]>([])
+  const members = stars.filter((s) => constellation.starIds.includes(s.id))
 
-  function toggle(starId: string) {
-    const next = memberIds.has(starId)
-      ? constellation.starIds.filter((id) => id !== starId)
-      : [...constellation.starIds, starId]
-    onUpdate({ starIds: next })
+  function openPicker() {
+    setDraft(constellation.starIds)
+    setPickingStars(true)
   }
 
   return (
@@ -112,41 +124,25 @@ export function ConstellationDetail({
 
       <div>
         <h3 className="text-sm font-medium text-moon mb-2">Member Stars</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {stars.map((s) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {members.map((s) => (
             <button
               key={s.id}
-              onClick={() => toggle(s.id)}
-              className={`text-xs border rounded-full px-2.5 py-1 transition-colors ${
-                memberIds.has(s.id)
-                  ? 'bg-cosmic text-night border-cosmic font-medium'
-                  : 'border-hairline text-moon-dim hover:text-moon'
-              }`}
+              onClick={() => onSelectStar(s.id)}
+              className="text-xs border border-hairline rounded-full px-2.5 py-1 text-moon-dim hover:text-moon transition-colors"
             >
               {s.name}
             </button>
           ))}
-          {stars.length === 0 && <span className="text-xs text-moon-dim">No Stars yet</span>}
+          <button
+            type="button"
+            className="text-xs text-cosmic hover:text-moon transition-colors"
+            onClick={openPicker}
+          >
+            + Add stars
+          </button>
         </div>
       </div>
-
-      {constellation.starIds.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {constellation.starIds.map((id) => {
-            const s = stars.find((x) => x.id === id)
-            if (!s) return null
-            return (
-              <button
-                key={id}
-                className="text-xs text-cosmic hover:text-moon transition-colors underline"
-                onClick={() => onSelectStar(id)}
-              >
-                Open {s.name}
-              </button>
-            )
-          })}
-        </div>
-      )}
 
       <button className="text-xs text-moon-dim hover:text-red-400 transition-colors" onClick={onDelete}>
         Delete constellation
@@ -162,6 +158,49 @@ export function ConstellationDetail({
             }}
             onCancel={() => setEditing(false)}
           />
+        </BottomSheet>
+      )}
+
+      {pickingStars && (
+        <BottomSheet title="Add stars" onClose={() => setPickingStars(false)}>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5 max-h-72 overflow-y-auto">
+              {stars.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setDraft((d) => (d.includes(s.id) ? d.filter((id) => id !== s.id) : [...d, s.id]))}
+                  className={`text-xs border rounded-full px-2.5 py-1 transition-colors ${
+                    draft.includes(s.id)
+                      ? 'bg-cosmic text-night border-cosmic font-medium'
+                      : 'border-hairline text-moon-dim hover:text-moon'
+                  }`}
+                >
+                  {s.name}
+                </button>
+              ))}
+              {stars.length === 0 && <p className="text-xs text-moon-dim">No Stars yet.</p>}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                className="border border-hairline rounded-lg px-3 py-2 text-sm flex-1 text-moon hover:bg-card-hover transition-colors"
+                onClick={() => setPickingStars(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg px-3 py-2 text-sm flex-1 bg-gold text-night font-medium"
+                onClick={() => {
+                  onUpdate({ starIds: draft })
+                  setPickingStars(false)
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </BottomSheet>
       )}
     </div>

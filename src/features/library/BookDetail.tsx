@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
-import { BUCKET_LIST_STARTER_TAGS } from '@/types/bucketList'
-import { TagPicker } from '@/features/shared/TagPicker'
+import { BOOK_TAG_SUGGESTIONS } from '@/types/library'
+import { TagsField } from '@/features/shared/TagsField'
 import { ReadStatusBadge, READ_STATUS_LABELS, allowedBookTransitions } from './bookLabels'
 import { BookForm } from './BookForm'
 
@@ -67,9 +67,9 @@ export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog,
 
       {book.notes && <p className="text-sm text-moon-dim">{book.notes}</p>}
 
-      <TagPicker
+      <TagsField
         tags={book.tags}
-        suggestions={Array.from(new Set([...BUCKET_LIST_STARTER_TAGS.book, ...book.tags]))}
+        suggestions={Array.from(new Set([...BOOK_TAG_SUGGESTIONS, ...book.tags]))}
         onChange={(tags) => onUpdate({ tags })}
       />
 

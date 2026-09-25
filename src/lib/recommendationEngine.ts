@@ -160,7 +160,7 @@ function candidateTasks(stars: Star[], tasks: Task[]): { task: Task; star: Star 
     stars.filter((s) => s.stage === 'current_orbit').map((s) => [s.id, s]),
   )
   return tasks
-    .filter((t) => t.status !== 'done' && eligibleStars.has(t.starId))
+    .filter((t) => t.status !== 'done' && !t.isGoal && eligibleStars.has(t.starId))
     .map((t) => ({ task: t, star: eligibleStars.get(t.starId)! }))
 }
 

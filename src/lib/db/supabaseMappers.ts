@@ -64,6 +64,7 @@ export function constellationFromRow(row: Record<string, unknown>): Constellatio
   return {
     id: row.id as string,
     name: row.name as string,
+    shortName: (row.short_name as string) ?? undefined,
     description: (row.description as string) ?? undefined,
     coverImage: (row.cover_image as string) ?? undefined,
     starIds: (row.star_ids as string[]) ?? [],
@@ -83,6 +84,7 @@ export function constellationToRow(
 ): Record<string, unknown> {
   const row: Record<string, unknown> = { user_id: userId }
   if (input.name !== undefined) row.name = input.name
+  if (input.shortName !== undefined) row.short_name = input.shortName
   if (input.description !== undefined) row.description = input.description
   if (input.coverImage !== undefined) row.cover_image = input.coverImage
   if (input.starIds !== undefined) row.star_ids = input.starIds
@@ -124,6 +126,7 @@ export function taskFromRow(row: Record<string, unknown>): Task {
             count: (row.habit_frequency_count as number) ?? undefined,
           }
         : undefined,
+    isGoal: (row.is_goal as boolean) ?? undefined,
   }
 }
 
@@ -151,6 +154,7 @@ export function taskToRow(input: Partial<Task>, userId: string): Record<string, 
     row.habit_frequency_kind = input.habitFrequency?.kind ?? null
     row.habit_frequency_count = input.habitFrequency?.count ?? null
   }
+  if (input.isGoal !== undefined) row.is_goal = input.isGoal
   return row
 }
 
@@ -174,6 +178,7 @@ export function watchableFromRow(row: Record<string, unknown>): Watchable {
     rating: (row.rating as number) ?? undefined,
     notes: (row.notes as string) ?? undefined,
     tags: (row.tags as string[]) ?? [],
+    streamingSource: (row.streaming_source as string) ?? undefined,
     relatedStarIds: (row.related_star_ids as string[]) ?? [],
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
@@ -191,6 +196,7 @@ export function watchableToRow(input: Partial<Watchable>, userId: string): Recor
   if (input.rating !== undefined) row.rating = input.rating
   if (input.notes !== undefined) row.notes = input.notes
   if (input.tags !== undefined) row.tags = input.tags
+  if (input.streamingSource !== undefined) row.streaming_source = input.streamingSource
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
   if (input.completedAt !== undefined) row.completed_at = input.completedAt
   return row
@@ -346,8 +352,8 @@ export function bucketListItemFromRow(row: Record<string, unknown>): BucketListI
     notes: (row.notes as string) ?? undefined,
     status: row.status as BucketListItem['status'],
     tags: (row.tags as string[]) ?? [],
+    streamingSource: (row.streaming_source as string) ?? undefined,
     relatedStarIds: (row.related_star_ids as string[]) ?? [],
-    bookId: (row.book_id as string) ?? undefined,
     watchableId: (row.watchable_id as string) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
@@ -365,8 +371,8 @@ export function bucketListItemToRow(
   if (input.notes !== undefined) row.notes = input.notes
   if (input.status !== undefined) row.status = input.status
   if (input.tags !== undefined) row.tags = input.tags
+  if (input.streamingSource !== undefined) row.streaming_source = input.streamingSource
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
-  if (input.bookId !== undefined) row.book_id = input.bookId
   if (input.watchableId !== undefined) row.watchable_id = input.watchableId
   if (input.completedAt !== undefined) row.completed_at = input.completedAt
   return row

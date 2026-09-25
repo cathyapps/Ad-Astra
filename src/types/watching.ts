@@ -21,6 +21,7 @@ export interface Watchable {
   rating?: number // 1-5, set on completion
   notes?: string
   tags: string[]
+  streamingSource?: string // e.g. "Netflix", "Hulu" — where you'd actually watch it
 
   relatedStarIds: string[]
 

@@ -119,6 +119,7 @@ export class LocalStore implements AdAstraStore {
     const constellation: Constellation = {
       id: uuid(),
       name: input.name,
+      shortName: input.shortName,
       description: input.description,
       coverImage: input.coverImage,
       starIds: input.starIds ?? [],
@@ -180,6 +181,7 @@ export class LocalStore implements AdAstraStore {
       tags: input.tags ?? [],
       taskType: input.taskType,
       habitFrequency: input.habitFrequency,
+      isGoal: input.isGoal,
     }
     write(KEYS.tasks, [...tasks, task])
     return task
@@ -239,6 +241,7 @@ export class LocalStore implements AdAstraStore {
       rating: input.rating,
       notes: input.notes,
       tags: input.tags ?? [],
+      streamingSource: input.streamingSource,
       relatedStarIds: input.relatedStarIds ?? [],
       createdAt: now(),
       updatedAt: now(),
@@ -476,10 +479,10 @@ export class LocalStore implements AdAstraStore {
       category: input.category,
       name: input.name,
       notes: input.notes,
-      status: input.status ?? 'backlog',
+      status: input.status ?? (input.category === 'travel_destination' ? 'bucket_list' : 'backlog'),
       tags: input.tags ?? [],
+      streamingSource: input.streamingSource,
       relatedStarIds: input.relatedStarIds ?? [],
-      bookId: input.bookId,
       watchableId: input.watchableId,
       createdAt: now(),
       updatedAt: now(),

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Star, StarCategory, StarStage } from '@/types'
 import { suggestedFieldsForStage } from '@/lib/starLifecycle'
 import { STAGE_LABELS } from './stageLabels'
+import { TagsField } from '@/features/shared/TagsField'
 
 const CATEGORIES: StarCategory[] = [
   'travel',
@@ -22,11 +23,12 @@ const labelClass = 'text-sm block text-moon-dim'
 interface Props {
   initial?: Partial<Star>
   defaultStage?: StarStage
+  tagSuggestions?: string[]
   onSave: (input: Partial<Star> & { name: string }) => void
   onCancel: () => void
 }
 
-export function StarForm({ initial, defaultStage = 'someday', onSave, onCancel }: Props) {
+export function StarForm({ initial, defaultStage = 'someday', tagSuggestions = [], onSave, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [category, setCategory] = useState<StarCategory | ''>(initial?.category ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -36,6 +38,7 @@ export function StarForm({ initial, defaultStage = 'someday', onSave, onCancel }
   const [desiredOutcome, setDesiredOutcome] = useState(initial?.desiredOutcome ?? '')
   const [estimatedEffort, setEstimatedEffort] = useState(initial?.estimatedEffort ?? '')
   const [deadline, setDeadline] = useState(initial?.deadline ?? '')
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
 
   const suggested = new Set(suggestedFieldsForStage(stage).map((f) => f.field))
 
@@ -56,6 +59,7 @@ export function StarForm({ initial, defaultStage = 'someday', onSave, onCancel }
           desiredOutcome: desiredOutcome || undefined,
           estimatedEffort: estimatedEffort || undefined,
           deadline: deadline || undefined,
+          tags,
         })
       }}
     >
@@ -154,6 +158,13 @@ export function StarForm({ initial, defaultStage = 'someday', onSave, onCancel }
           onChange={(e) => setDeadline(e.target.value)}
         />
       </label>
+
+      <div>
+        <span className={labelClass}>Tags</span>
+        <div className="mt-1">
+          <TagsField tags={tags} suggestions={tagSuggestions} onChange={setTags} />
+        </div>
+      </div>
 
       <div className="flex gap-2 pt-2">
         <button

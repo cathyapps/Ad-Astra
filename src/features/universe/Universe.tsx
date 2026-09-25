@@ -95,6 +95,8 @@ export function Universe({
           tasks={tasks}
           books={books}
           bucketListItems={bucketListItems}
+          allStars={stars}
+          constellations={constellations}
           onMoveStage={(to) => onMoveStar(selectedStar.id, to)}
           onUpdate={(patch) => onUpdateStar(selectedStar.id, patch)}
           onCreateTask={onCreateTask}
@@ -102,6 +104,7 @@ export function Universe({
           onDeleteTask={onDeleteTask}
           onUpdateBook={onUpdateBook}
           onUpdateBucketListItem={onUpdateBucketListItem}
+          onUpdateConstellation={onUpdateConstellation}
           onDelete={() => {
             onDeleteStar(selectedStar.id)
             setSelectedStarId(undefined)
@@ -167,6 +170,7 @@ export function Universe({
       {showStarForm && (
         <BottomSheet title="New star" onClose={() => setShowStarForm(false)}>
           <StarForm
+            tagSuggestions={Array.from(new Set(stars.flatMap((s) => s.tags ?? [])))}
             onCancel={() => setShowStarForm(false)}
             onSave={(input) => {
               onCreateStar(input)
