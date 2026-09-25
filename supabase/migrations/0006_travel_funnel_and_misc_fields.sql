@@ -23,6 +23,13 @@ alter table bucket_list_items
 
 alter table bucket_list_items add column if not exists streaming_source text;
 
+-- Any existing travel_destination rows were created under the old
+-- generic backlog/in_progress/completed status set — remap them to
+-- the new travel-specific stages so they render correctly.
+update bucket_list_items set status = 'bucket_list' where category = 'travel_destination' and status = 'backlog';
+update bucket_list_items set status = 'on_the_radar' where category = 'travel_destination' and status = 'in_progress';
+update bucket_list_items set status = 'progressing_to_star' where category = 'travel_destination' and status = 'completed';
+
 alter table watchables add column if not exists streaming_source text;
 
 alter table constellations add column if not exists short_name text;

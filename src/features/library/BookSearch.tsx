@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import type { Book } from '@/types/library'
 import { buildBookDraft, searchOpenLibrary, type OpenLibraryHit } from '@/lib/openLibrary'
 
@@ -9,15 +9,19 @@ interface Props {
 /** Lets you search Open Library and prefill the Add Book form instead
  *  of typing everything by hand. Picking a result fetches the print
  *  edition's page count (search results only have a rougher
- *  cross-edition median) before handing the draft back. */
+ *  cross-edition median) before handing the draft back.
+ *
+ *  Deliberately NOT a <form> — this renders inside BookForm's own
+ *  <form>, and a nested <form> there caused the Search button to
+ *  submit/reset the outer form instead of running a search. Enter-to-
+ *  search is handled manually below instead. */
 export function BookSearch({ onPick }: Props) {
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<OpenLibraryHit[]>([])
   const [status, setStatus] = useState<'idle' | 'searching' | 'error'>('idle')
   const [loadingKey, setLoadingKey] = useState<string | null>(null)
 
-  async function runSearch(e: FormEvent) {
-    e.preventDefault()
+  async function runSearch() {
     if (!query.trim()) return
     setStatus('searching')
     try {
@@ -26,6 +30,13 @@ export function BookSearch({ onPick }: Props) {
       setStatus('idle')
     } catch {
       setStatus('error')
+    }
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      runSearch()
     }
   }
 
@@ -54,21 +65,23 @@ export function BookSearch({ onPick }: Props) {
 
   return (
     <div className="border border-hairline rounded-lg p-3 space-y-2.5 bg-night/40">
-      <form className="flex gap-2" onSubmit={runSearch}>
+      <div className="flex gap-2">
         <input
           className="flex-1 border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60"
           placeholder="Search by title or author…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={onKeyDown}
         />
         <button
-          type="submit"
+          type="button"
+          onClick={runSearch}
           className="border border-hairline rounded-lg px-3 py-2 text-sm text-moon hover:bg-card-hover transition-colors"
           disabled={status === 'searching'}
         >
           {status === 'searching' ? 'Searching…' : 'Search'}
         </button>
-      </form>
+      </div>
 
       {status === 'error' && (
         <p className="text-xs text-red-400">Couldn't reach Open Library — you can still enter details below.</p>

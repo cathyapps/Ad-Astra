@@ -71,14 +71,7 @@ export default function App() {
             stars={adAstra.stars}
             tasks={adAstra.tasks}
             constellations={adAstra.constellations}
-            books={adAstra.books}
-            bucketListItems={adAstra.bucketListItems}
             onUpdateTask={adAstra.updateTask}
-            onUpdateBook={adAstra.updateBook}
-            onCreateReadingLog={adAstra.createReadingLog}
-            onUpdateBucketListItem={adAstra.updateBucketListItem}
-            onOpenLibrary={() => setTab('library')}
-            onOpenBucketList={() => setTab('bucketlist')}
           />
         )}
         {tab === 'universe' && (

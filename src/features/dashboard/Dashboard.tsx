@@ -12,9 +12,6 @@ import type {
   Task,
   TimeBudget,
 } from '@/types'
-import type { Book } from '@/types/library'
-import type { BucketListItem } from '@/types/bucketList'
-import { BUCKET_LIST_CATEGORY_LABELS } from '@/types/bucketList'
 import { getRecommendations, getSmallWin } from '@/lib/recommendationEngine'
 import { getCurrentOrbitStars } from '@/lib/currentOrbit'
 
@@ -31,14 +28,7 @@ interface Props {
   stars: Star[]
   tasks: Task[]
   constellations: Constellation[]
-  books: Book[]
-  bucketListItems: BucketListItem[]
   onUpdateTask: (id: string, patch: Partial<Task>) => void
-  onUpdateBook: (id: string, patch: Partial<Book>) => void
-  onCreateReadingLog: (input: { bookId: string; currentPage: number }) => void
-  onUpdateBucketListItem: (id: string, patch: Partial<BucketListItem>) => void
-  onOpenLibrary: () => void
-  onOpenBucketList: () => void
 }
 
 function Chip({
@@ -62,29 +52,13 @@ function Chip({
   )
 }
 
-export function Dashboard({
-  stars,
-  tasks,
-  constellations,
-  books,
-  bucketListItems,
-  onUpdateTask,
-  onUpdateBook,
-  onCreateReadingLog,
-  onUpdateBucketListItem,
-  onOpenLibrary,
-  onOpenBucketList,
-}: Props) {
+export function Dashboard({ stars, tasks, constellations, onUpdateTask }: Props) {
   const [context, setContext] = useState<DashboardContext>({ activityTypes: [] })
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null)
   const [smallWin, setSmallWin] = useState<Recommendation | null | undefined>(undefined)
   const [celebrating, setCelebrating] = useState<string | null>(null)
-  const [loggingBookId, setLoggingBookId] = useState<string | null>(null)
-  const [pageInput, setPageInput] = useState('')
 
   const orbit = getCurrentOrbitStars(stars)
-  const inProgressBooks = books.filter((b) => b.readStatus === 'reading')
-  const inProgressBucketItems = bucketListItems.filter((i) => i.status === 'in_progress')
 
   function toggleActivity(a: ActivityType) {
     setContext((c) => ({
@@ -111,123 +85,6 @@ export function Dashboard({
           ✦ Nice — "{celebrating}" done.
         </div>
       )}
-
-      <div>
-        <h3 className="text-xs uppercase tracking-wide text-moon-dim mb-2">
-          Current Orbit ({orbit.length})
-        </h3>
-        {orbit.length === 0 ? (
-          <p className="text-sm text-moon-dim">
-            Nothing in orbit yet — move a Star to Current Orbit from the Universe tab.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {orbit.map((s) => (
-              <span
-                key={s.id}
-                className="text-xs border border-hairline rounded-full px-2.5 py-1 text-moon"
-              >
-                {s.name} <span className="text-gold">{s.progress}%</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs uppercase tracking-wide text-moon-dim">
-            In Progress ({inProgressBooks.length + inProgressBucketItems.length})
-          </h3>
-          <div className="flex gap-3">
-            <button className="text-xs text-cosmic hover:text-moon transition-colors" onClick={onOpenLibrary}>
-              Library
-            </button>
-            <button className="text-xs text-cosmic hover:text-moon transition-colors" onClick={onOpenBucketList}>
-              Bucket List
-            </button>
-          </div>
-        </div>
-        {inProgressBooks.length === 0 && inProgressBucketItems.length === 0 ? (
-          <p className="text-sm text-moon-dim">Nothing in progress right now.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {inProgressBooks.map((b) => (
-              <div key={b.id} className="border border-hairline rounded-lg px-3 py-2 bg-card space-y-1.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-sm text-moon flex-1">{b.title}</span>
-                  <button
-                    className="text-xs text-cosmic hover:text-moon transition-colors"
-                    onClick={() => setLoggingBookId(loggingBookId === b.id ? null : b.id)}
-                  >
-                    Log page
-                  </button>
-                  <button
-                    className="text-xs border border-hairline rounded-full px-2.5 py-1 text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
-                    onClick={() =>
-                      onUpdateBook(b.id, { readStatus: 'read', completedAt: new Date().toISOString() })
-                    }
-                  >
-                    Mark complete
-                  </button>
-                </div>
-                {loggingBookId === b.id && (
-                  <form
-                    className="flex gap-2"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      const page = Number(pageInput)
-                      if (!page) return
-                      onCreateReadingLog({ bookId: b.id, currentPage: page })
-                      setPageInput('')
-                      setLoggingBookId(null)
-                    }}
-                  >
-                    <input
-                      autoFocus
-                      inputMode="numeric"
-                      className="flex-1 border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon"
-                      placeholder="Current page"
-                      value={pageInput}
-                      onChange={(e) => setPageInput(e.target.value)}
-                    />
-                    <button
-                      type="submit"
-                      className="border border-hairline rounded-lg px-3 py-1.5 text-sm text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
-                    >
-                      Save
-                    </button>
-                  </form>
-                )}
-              </div>
-            ))}
-            {inProgressBucketItems.map((i) => (
-              <div
-                key={i.id}
-                className="border border-hairline rounded-lg px-3 py-2 bg-card flex items-center gap-2.5"
-              >
-                <span className="text-sm text-moon flex-1">
-                  {i.name}{' '}
-                  <span className="text-xs text-moon-dim">
-                    ({BUCKET_LIST_CATEGORY_LABELS[i.category]})
-                  </span>
-                </span>
-                <button
-                  className="text-xs border border-hairline rounded-full px-2.5 py-1 text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
-                  onClick={() =>
-                    onUpdateBucketListItem(i.id, {
-                      status: 'completed',
-                      completedAt: new Date().toISOString(),
-                    })
-                  }
-                >
-                  Mark complete
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div className="border border-hairline rounded-xl p-4 space-y-3 bg-card">
         <h3 className="text-sm font-medium text-moon">What are you in the mood for?</h3>
@@ -394,6 +251,28 @@ export function Dashboard({
           )}
         </div>
       )}
+
+      <div>
+        <h3 className="text-xs uppercase tracking-wide text-moon-dim mb-2">
+          Current Orbit ({orbit.length})
+        </h3>
+        {orbit.length === 0 ? (
+          <p className="text-sm text-moon-dim">
+            Nothing in orbit yet — move a Star to Current Orbit from the Universe tab.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {orbit.map((s) => (
+              <span
+                key={s.id}
+                className="text-xs border border-hairline rounded-full px-2.5 py-1 text-moon"
+              >
+                {s.name} <span className="text-gold">{s.progress}%</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

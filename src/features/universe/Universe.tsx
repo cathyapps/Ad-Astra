@@ -52,6 +52,11 @@ export function Universe({
 }: Props) {
   const [selectedStarId, setSelectedStarId] = useState<string | undefined>()
   const [selectedConstellationId, setSelectedConstellationId] = useState<string | undefined>()
+  // Where the selected Star's detail/edit panel should render — "top"
+  // (above the map, the original behavior) for map/orbit selections, or
+  // "list" to render inline right below the clicked row in the All
+  // Stars list instead of jumping the person's scroll position.
+  const [detailAnchor, setDetailAnchor] = useState<'top' | 'list'>('top')
   const [showStarForm, setShowStarForm] = useState(false)
   const [showConstellationForm, setShowConstellationForm] = useState(false)
   const [showAllStars, setShowAllStars] = useState(false)
@@ -60,14 +65,39 @@ export function Universe({
   const selectedStar = stars.find((s) => s.id === selectedStarId)
   const selectedConstellation = constellations.find((c) => c.id === selectedConstellationId)
 
-  function selectStar(id: string) {
+  function selectStar(id: string, anchor: 'top' | 'list' = 'top') {
     setSelectedConstellationId(undefined)
     setSelectedStarId(id)
+    setDetailAnchor(anchor)
   }
   function selectConstellation(id: string) {
     setSelectedStarId(undefined)
     setSelectedConstellationId(id)
   }
+
+  const starDetail = selectedStar && (
+    <StarDetail
+      star={selectedStar}
+      tasks={tasks}
+      books={books}
+      bucketListItems={bucketListItems}
+      allStars={stars}
+      constellations={constellations}
+      onMoveStage={(to) => onMoveStar(selectedStar.id, to)}
+      onUpdate={(patch) => onUpdateStar(selectedStar.id, patch)}
+      onCreateTask={onCreateTask}
+      onUpdateTask={onUpdateTask}
+      onDeleteTask={onDeleteTask}
+      onUpdateBook={onUpdateBook}
+      onUpdateBucketListItem={onUpdateBucketListItem}
+      onUpdateConstellation={onUpdateConstellation}
+      onDelete={() => {
+        onDeleteStar(selectedStar.id)
+        setSelectedStarId(undefined)
+      }}
+      onClose={() => setSelectedStarId(undefined)}
+    />
+  )
 
   return (
     <div className="space-y-4">
@@ -89,29 +119,7 @@ export function Universe({
         </div>
       </div>
 
-      {selectedStar && (
-        <StarDetail
-          star={selectedStar}
-          tasks={tasks}
-          books={books}
-          bucketListItems={bucketListItems}
-          allStars={stars}
-          constellations={constellations}
-          onMoveStage={(to) => onMoveStar(selectedStar.id, to)}
-          onUpdate={(patch) => onUpdateStar(selectedStar.id, patch)}
-          onCreateTask={onCreateTask}
-          onUpdateTask={onUpdateTask}
-          onDeleteTask={onDeleteTask}
-          onUpdateBook={onUpdateBook}
-          onUpdateBucketListItem={onUpdateBucketListItem}
-          onUpdateConstellation={onUpdateConstellation}
-          onDelete={() => {
-            onDeleteStar(selectedStar.id)
-            setSelectedStarId(undefined)
-          }}
-          onClose={() => setSelectedStarId(undefined)}
-        />
-      )}
+      {detailAnchor === 'top' && starDetail}
 
       {selectedConstellation && (
         <ConstellationDetail
@@ -128,6 +136,29 @@ export function Universe({
       )}
 
       <StarMap stars={stars} constellations={constellations} onSelect={selectStar} selectedId={selectedStarId} />
+
+      {constellations.length > 0 && (
+        <div>
+          <h3 className="text-xs uppercase tracking-wide text-moon-dim mb-2">
+            Constellations — tap to view or edit
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {constellations.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => selectConstellation(c.id)}
+                className={`text-xs border rounded-full px-2.5 py-1.5 transition-colors ${
+                  c.id === selectedConstellationId
+                    ? 'border-gold/40 bg-card-hover text-moon'
+                    : 'border-hairline text-moon-dim hover:text-moon'
+                }`}
+              >
+                {c.shortName || c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <h3 className="text-xs uppercase tracking-wide text-moon-dim mb-2">In Orbit</h3>
@@ -164,7 +195,14 @@ export function Universe({
             {showAllStars ? 'Hide' : 'See all Stars'}
           </button>
         </div>
-        {showAllStars && <UniverseLists stars={stars} onSelect={selectStar} selectedId={selectedStarId} />}
+        {showAllStars && (
+          <UniverseLists
+            stars={stars}
+            onSelect={(id) => selectStar(id, 'list')}
+            selectedId={selectedStarId}
+            inlineDetail={detailAnchor === 'list' ? starDetail : undefined}
+          />
+        )}
       </div>
 
       {showStarForm && (
