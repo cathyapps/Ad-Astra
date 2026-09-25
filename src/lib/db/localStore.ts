@@ -386,6 +386,7 @@ export class LocalStore implements AdAstraStore {
       rating: input.rating,
       notes: input.notes,
       tags: input.tags ?? [],
+      isNextUp: input.isNextUp ?? false,
       isbn: input.isbn,
       coverUrl: input.coverUrl,
       publisher: input.publisher,

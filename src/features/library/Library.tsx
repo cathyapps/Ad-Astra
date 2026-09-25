@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
 import type { ChartConfig, ChartType, MetricKey, MetricsTimeframe } from '@/types/charts'
-import { CurrentlyReading } from './CurrentlyReading'
-import { MyLibrary } from './MyLibrary'
+import { InProgressShelf } from './InProgressShelf'
+import { LibraryShelf } from './LibraryShelf'
 import { Metrics } from './Metrics'
 
-type SubTab = 'reading' | 'shelf' | 'metrics'
+type SubTab = 'inProgress' | 'library' | 'metrics'
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
-  { id: 'reading', label: 'Currently Reading' },
-  { id: 'shelf', label: 'My Library' },
+  { id: 'inProgress', label: 'In Progress' },
+  { id: 'library', label: 'Library' },
   { id: 'metrics', label: 'Metrics' },
 ]
 
@@ -28,6 +28,9 @@ interface Props {
   onDeleteChart: (id: string) => void
 }
 
+// The Library is deliberately its own "room" — warm wood/leather/brass
+// (see .library-realm in index.css) rather than the app's cool night-sky
+// look elsewhere, so stepping into it feels like a cozy reading nook.
 export function Library({
   books,
   readingLogs,
@@ -42,10 +45,10 @@ export function Library({
   onUpdateChart,
   onDeleteChart,
 }: Props) {
-  const [subTab, setSubTab] = useState<SubTab>('reading')
+  const [subTab, setSubTab] = useState<SubTab>('inProgress')
 
   return (
-    <div className="space-y-4">
+    <div className="library-realm space-y-4">
       <h2 className="font-display text-lg text-moon">Library</h2>
 
       <div className="flex gap-1 text-sm overflow-x-auto">
@@ -53,7 +56,7 @@ export function Library({
           <button
             key={t.id}
             className={`px-3 py-1.5 rounded-full whitespace-nowrap transition-colors ${
-              subTab === t.id ? 'bg-cosmic text-night font-medium' : 'text-moon-dim hover:text-moon'
+              subTab === t.id ? 'bg-gold text-night font-medium' : 'text-moon-dim hover:text-moon'
             }`}
             onClick={() => setSubTab(t.id)}
           >
@@ -62,8 +65,8 @@ export function Library({
         ))}
       </div>
 
-      {subTab === 'reading' && (
-        <CurrentlyReading
+      {subTab === 'inProgress' && (
+        <InProgressShelf
           books={books}
           readingLogs={readingLogs}
           onUpdateBook={onUpdateBook}
@@ -72,8 +75,8 @@ export function Library({
         />
       )}
 
-      {subTab === 'shelf' && (
-        <MyLibrary
+      {subTab === 'library' && (
+        <LibraryShelf
           books={books}
           readingLogs={readingLogs}
           onCreateBook={onCreateBook}

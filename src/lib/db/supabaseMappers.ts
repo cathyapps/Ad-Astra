@@ -274,6 +274,7 @@ export function bookFromRow(row: Record<string, unknown>): Book {
     rating: (row.rating as number) ?? undefined,
     notes: (row.notes as string) ?? undefined,
     tags: (row.tags as string[]) ?? [],
+    isNextUp: (row.is_next_up as boolean) ?? false,
     isbn: (row.isbn as string) ?? undefined,
     coverUrl: (row.cover_url as string) ?? undefined,
     publisher: (row.publisher as string) ?? undefined,
@@ -303,6 +304,7 @@ export function bookToRow(input: Partial<Book>, userId: string): Record<string, 
   if (input.rating !== undefined) row.rating = input.rating
   if (input.notes !== undefined) row.notes = input.notes
   if (input.tags !== undefined) row.tags = input.tags
+  if (input.isNextUp !== undefined) row.is_next_up = input.isNextUp
   if (input.isbn !== undefined) row.isbn = input.isbn
   if (input.coverUrl !== undefined) row.cover_url = input.coverUrl
   if (input.publisher !== undefined) row.publisher = input.publisher

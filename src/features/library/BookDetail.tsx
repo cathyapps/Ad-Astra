@@ -4,6 +4,7 @@ import { BOOK_TAG_SUGGESTIONS } from '@/types/library'
 import { TagsField } from '@/features/shared/TagsField'
 import { ReadStatusBadge, READ_STATUS_LABELS, allowedBookTransitions } from './bookLabels'
 import { BookForm } from './BookForm'
+import { ProgressLogSheet } from './ProgressLogSheet'
 
 interface Props {
   book: Book
@@ -17,8 +18,6 @@ interface Props {
 export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog, onClose }: Props) {
   const [editing, setEditing] = useState(false)
   const [loggingOpen, setLoggingOpen] = useState(false)
-  const [pageInput, setPageInput] = useState('')
-  const [minutesInput, setMinutesInput] = useState('')
 
   const logs = readingLogs
     .filter((l) => l.bookId === book.id)
@@ -74,6 +73,18 @@ export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog,
       />
 
       <div className="flex flex-wrap gap-2">
+        {book.readStatus === 'want_to_read' && (
+          <button
+            className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${
+              book.isNextUp
+                ? 'bg-gold text-night border-gold font-medium'
+                : 'border-hairline text-moon-dim hover:text-moon hover:bg-card-hover'
+            }`}
+            onClick={() => onUpdate({ isNextUp: !book.isNextUp })}
+          >
+            {book.isNextUp ? '★ Next up' : '☆ Mark as next up'}
+          </button>
+        )}
         {options.map((s) => (
           <button
             key={s}
@@ -108,50 +119,18 @@ export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog,
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-moon">Reading Log</h3>
-          <button
-            className="text-xs text-cosmic hover:text-moon transition-colors"
-            onClick={() => setLoggingOpen((v) => !v)}
-          >
+          <button className="text-xs text-cosmic hover:text-moon transition-colors" onClick={() => setLoggingOpen(true)}>
             + Log progress
           </button>
         </div>
 
         {loggingOpen && (
-          <form
-            className="flex gap-2 mb-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const page = pageInput ? Number(pageInput) : undefined
-              const minutes = minutesInput ? Number(minutesInput) : undefined
-              if (page == null && minutes == null) return
-              onCreateLog({ currentPage: page, minutesSpentReading: minutes })
-              setPageInput('')
-              setMinutesInput('')
-              setLoggingOpen(false)
-            }}
-          >
-            <input
-              autoFocus
-              inputMode="numeric"
-              className="flex-1 border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon placeholder:text-moon-dim/60"
-              placeholder="Current page"
-              value={pageInput}
-              onChange={(e) => setPageInput(e.target.value)}
-            />
-            <input
-              inputMode="numeric"
-              className="w-24 border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon placeholder:text-moon-dim/60"
-              placeholder="Minutes"
-              value={minutesInput}
-              onChange={(e) => setMinutesInput(e.target.value)}
-            />
-            <button
-              type="submit"
-              className="border border-hairline rounded-lg px-3 py-1.5 text-sm text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
-            >
-              Save
-            </button>
-          </form>
+          <ProgressLogSheet
+            book={book}
+            onCreateLog={onCreateLog}
+            onUpdateBook={onUpdate}
+            onClose={() => setLoggingOpen(false)}
+          />
         )}
 
         {logs.length === 0 ? (

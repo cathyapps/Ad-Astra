@@ -21,6 +21,17 @@ export const BOOK_READ_STATUS_ORDER: BookReadStatus[] = ['want_to_read', 'readin
 // for the Library's own tag picker.
 export const BOOK_TAG_SUGGESTIONS = ['fiction', 'nonfiction', 'fantasy', 'sci-fi', 'memoir', 'mystery', 'classic']
 
+// Auto-generated length-bucket "tag" shown as its own spine on the Library
+// shelf, derived from totalPages — not stored, just computed on the fly
+// (see src/lib/libraryShelf.ts).
+export type LengthBucket = 'Under 200pg' | '200–400pg' | '400pg+'
+export function lengthBucketFor(totalPages: number | undefined): LengthBucket | undefined {
+  if (totalPages == null) return undefined
+  if (totalPages < 200) return 'Under 200pg'
+  if (totalPages <= 400) return '200–400pg'
+  return '400pg+'
+}
+
 export interface Book {
   id: string
   title: string
@@ -44,6 +55,12 @@ export interface Book {
   rating?: number // 1-5, set on completion
   notes?: string
   tags: string[]
+
+  // Manual override for the Library's "Next Reads" shelf — pins this book
+  // as a recommended next read instead of leaving that slot to the random
+  // pick from the TBR pool. Only meaningful while readStatus is
+  // 'want_to_read'; harmless if left true after the book moves on.
+  isNextUp?: boolean
 
   // Populated when the book was added via the Open Library search
   // (see src/lib/openLibrary.ts). All optional — a manually-entered book

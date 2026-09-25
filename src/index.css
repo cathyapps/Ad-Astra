@@ -34,6 +34,39 @@
   color-scheme: dark;
 }
 
+/*
+  Library theme — a warm, cozy "reading room" palette scoped to the
+  Library section only (wraps Library.tsx), distinct from the rest of the
+  app's cool night-sky look. Inspired by a wood-panelled home library:
+  mahogany + leather + brass, lit warm rather than starlit-cool. Reuses
+  the app's own --color-gold as the brass/lamp-glow accent so it still
+  feels like the same app, just a different room in it.
+*/
+.library-realm {
+  --color-night: #1c120c;
+  --color-night-deep: #120b07;
+  --color-card: #2a1c13;
+  --color-card-hover: #35251a;
+  --color-cosmic: #c1652f;
+  --color-moon: #f1e4d0;
+  --color-moon-dim: #c7ac8c;
+  --color-hairline: rgba(241, 228, 208, 0.14);
+  --color-hairline-soft: rgba(241, 228, 208, 0.07);
+
+  background: var(--color-night);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(255, 215, 122, 0.06), transparent 60%),
+    radial-gradient(ellipse at 90% 100%, rgba(193, 101, 47, 0.14), transparent 55%);
+  border-radius: 1rem;
+  padding: 1rem;
+  margin: -0.25rem -1rem;
+}
+
+.library-shelf-ledge {
+  border-bottom: 3px solid var(--color-gold);
+  box-shadow: 0 1px 8px rgba(255, 215, 122, 0.25);
+}
+
 html,
 body,
 #root {
