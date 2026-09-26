@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { Book, ReadingLog, BookFormat } from '@/types/library'
 import { pickNextReads, allSpines, spinesFor, toShelfRows } from '@/lib/libraryShelf'
+import { MAIN_SHELF, NEXT_READS_SHELF } from './shelfPhotoLayout'
+import { PhotoShelf } from './PhotoShelf'
 import { BookCover } from './BookCover'
 import { BookForm } from './BookForm'
 import { BookDetail } from './BookDetail'
@@ -113,21 +115,28 @@ export function LibraryShelf({
       {nextReads.length > 0 && (
         <div>
           <h3 className="text-sm font-medium text-moon mb-2">Next Reads</h3>
-          <div className="grid grid-cols-4 gap-2.5 pb-3 library-shelf-ledge">
-            {nextReads.map((book) => (
-              <button key={book.id} className="space-y-1 text-left" onClick={() => setSelectedId(book.id)}>
-                <div className="relative">
+          <PhotoShelf
+            config={NEXT_READS_SHELF}
+            covers={[0, 1, 2, 3].map((i) => {
+              const book = nextReads[i]
+              if (!book) return null
+              return (
+                <button className="block w-full h-full relative" onClick={() => setSelectedId(book.id)}>
                   <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
                   {book.isNextUp && (
                     <span className="absolute -top-1.5 -right-1.5 text-[10px] bg-gold text-night rounded-full w-4 h-4 flex items-center justify-center">
                       ★
                     </span>
                   )}
-                </div>
-                <span className="text-[10px] text-moon line-clamp-2 leading-snug">{book.title}</span>
-              </button>
-            ))}
-          </div>
+                </button>
+              )
+            })}
+            captions={[0, 1, 2, 3].map((i) => {
+              const book = nextReads[i]
+              if (!book) return null
+              return <span className="text-[10px] text-moon line-clamp-2 leading-snug block">{book.title}</span>
+            })}
+          />
         </div>
       )}
 
@@ -222,19 +231,33 @@ export function LibraryShelf({
           {owned.length === 0 ? (
             <p className="text-sm text-moon-dim">No books match this filter yet.</p>
           ) : (
-            <div className="space-y-6">
-              {toShelfRows(owned, 3).map((row, i) => (
-                <div key={i} className="pb-3 library-shelf-ledge">
-                  <div className="grid grid-cols-3 gap-3">
-                    {row.map((book) => (
-                      <button key={book.id} className="space-y-1.5 text-left" onClick={() => setSelectedId(book.id)}>
-                        <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
-                        <span className="block text-[11px] text-moon line-clamp-2 leading-snug">{book.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {toShelfRows(owned, 3).map((row, i) => {
+                const padded = [...row, ...Array<Book | null>(3 - row.length).fill(null)]
+                return (
+                  <PhotoShelf
+                    key={i}
+                    config={MAIN_SHELF}
+                    covers={padded.map((book) =>
+                      book ? (
+                        <button className="block w-full h-full" onClick={() => setSelectedId(book.id)}>
+                          <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
+                        </button>
+                      ) : null,
+                    )}
+                    captions={padded.map((book) =>
+                      book ? (
+                        <button
+                          className="text-[11px] text-moon text-left line-clamp-2 leading-snug hover:text-gold transition-colors block w-full"
+                          onClick={() => setSelectedId(book.id)}
+                        >
+                          {book.title}
+                        </button>
+                      ) : null,
+                    )}
+                  />
+                )
+              })}
             </div>
           )}
         </div>

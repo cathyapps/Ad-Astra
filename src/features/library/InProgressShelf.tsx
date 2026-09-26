@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
 import { lastActivityDate, toShelfRows } from '@/lib/libraryShelf'
+import { MAIN_SHELF } from './shelfPhotoLayout'
+import { PhotoShelf } from './PhotoShelf'
 import { BookCover } from './BookCover'
 import { ShelfProgress } from './ShelfProgress'
 import { ProgressLogSheet } from './ProgressLogSheet'
@@ -54,33 +56,42 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
       {reading.length === 0 ? (
         <p className="text-sm text-moon-dim">Nothing in progress — open a book from the Library to start it.</p>
       ) : (
-        <div className="space-y-6">
-          {rows.map((row, i) => (
-            <div key={i} className="pb-3 library-shelf-ledge">
-              <div className="grid grid-cols-3 gap-3">
-                {row.map((book) => (
-                  <div key={book.id} className="space-y-1.5">
-                    <button className="block w-full" onClick={() => setSelectedId(book.id)}>
+        <div className="space-y-4">
+          {rows.map((row, i) => {
+            const padded = [...row, ...Array<Book | null>(3 - row.length).fill(null)]
+            return (
+              <PhotoShelf
+                key={i}
+                config={MAIN_SHELF}
+                covers={padded.map((book) =>
+                  book ? (
+                    <button className="block w-full h-full" onClick={() => setSelectedId(book.id)}>
                       <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
                     </button>
-                    <button
-                      className="text-[11px] text-moon text-left line-clamp-2 leading-snug hover:text-gold transition-colors"
-                      onClick={() => setSelectedId(book.id)}
-                    >
-                      {book.title}
-                    </button>
-                    <ShelfProgress book={book} logs={readingLogs} onClick={() => setLoggingId(book.id)} />
-                    <button
-                      className="text-[10px] text-moon-dim hover:text-moon transition-colors"
-                      onClick={() => onUpdateBook(book.id, { readStatus: 'read', completedAt: new Date().toISOString() })}
-                    >
-                      ✓ Mark complete
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+                  ) : null,
+                )}
+                captions={padded.map((book) =>
+                  book ? (
+                    <div className="space-y-1">
+                      <button
+                        className="text-[11px] text-moon text-left line-clamp-2 leading-snug hover:text-gold transition-colors block w-full"
+                        onClick={() => setSelectedId(book.id)}
+                      >
+                        {book.title}
+                      </button>
+                      <ShelfProgress book={book} logs={readingLogs} onClick={() => setLoggingId(book.id)} />
+                      <button
+                        className="text-[10px] text-moon-dim hover:text-moon transition-colors"
+                        onClick={() => onUpdateBook(book.id, { readStatus: 'read', completedAt: new Date().toISOString() })}
+                      >
+                        ✓ Mark complete
+                      </button>
+                    </div>
+                  ) : null,
+                )}
+              />
+            )
+          })}
         </div>
       )}
     </div>
