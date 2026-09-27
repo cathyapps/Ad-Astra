@@ -55,8 +55,23 @@ function monthKey(dateStr: string): string {
   return dateStr.slice(0, 7)
 }
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function dayOfWeekKey(dateStr: string): string {
   return DAY_NAMES[new Date(dateStr).getDay()]
+}
+
+/** The bucket key (e.g. "2024-05") stays sortable and unique across
+ *  years; this turns it into what's actually shown on the axis. Only
+ *  date_month gets special treatment — a bare month name reads far
+ *  better than "2024-05", and there's no risk of collapsing distinct
+ *  points together since the bucketing key each label maps back to is
+ *  still year-qualified. */
+function displayLabel(xAxis: MetricKey, key: string): string {
+  if (xAxis === 'date_month') {
+    const monthIndex = Number(key.slice(5, 7)) - 1
+    return MONTH_NAMES[monthIndex] ?? key
+  }
+  return key
 }
 
 function timeKeyFor(xAxis: MetricKey, dateStr: string): string {
@@ -138,12 +153,12 @@ export function computeChartData(
         config.xAxis === 'day_of_week'
           ? DAY_NAMES
           : Array.from(new Set([...buckets.keys(), ...completedBuckets.keys()])).sort()
-      return keys.map((label) => ({ label, value: (completedBuckets.get(label) ?? []).length }))
+      return keys.map((key) => ({ label: displayLabel(config.xAxis, key), value: (completedBuckets.get(key) ?? []).length }))
     }
     const keys = config.xAxis === 'day_of_week' ? DAY_NAMES : Array.from(buckets.keys()).sort()
-    return keys.map((label) => ({
-      label,
-      value: aggregateY(config.yAxis, buckets.get(label) ?? [], []),
+    return keys.map((key) => ({
+      label: displayLabel(config.xAxis, key),
+      value: aggregateY(config.yAxis, buckets.get(key) ?? [], []),
     }))
   }
 

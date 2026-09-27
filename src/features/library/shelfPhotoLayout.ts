@@ -17,6 +17,15 @@ export interface ShelfPhotoConfig {
   floorFromBottomPct: number
 }
 
+/** A cover at a 2:3 ratio, `slot.width` wide, would stand this tall (as %
+ *  of the container's height) if it filled the slot's full vertical
+ *  budget — i.e. reached as high as the books in the source photo do.
+ *  Used both to size a full-height cover and, when shrinking a cover via
+ *  `coverScale`, to know how much vertical room is freed up above it. */
+export function fullCoverHeightPct(config: ShelfPhotoConfig, slot: ShelfSlot): number {
+  return slot.width * 1.5 * config.aspectRatio
+}
+
 // Measured directly from the two source photos: the bookend spines on
 // each side mark the empty "slot" zone, and the brass trim on the lower
 // shelf plank marks the floor line. Keeping these as measured percentages

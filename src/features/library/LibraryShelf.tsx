@@ -17,20 +17,22 @@ interface Props {
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
 }
 
-type FormatFilter = 'all' | 'physical' | 'kindle' | 'audio'
+type FilterId = 'unread' | 'owned' | 'physical' | 'kindle' | 'audio'
 
-const FORMAT_FILTERS: { id: FormatFilter; label: string }[] = [
-  { id: 'all', label: 'All Owned' },
+const FILTERS: { id: FilterId; label: string }[] = [
+  { id: 'unread', label: 'Unread' },
+  { id: 'owned', label: 'Owned' },
   { id: 'physical', label: 'Physical' },
   { id: 'kindle', label: 'Kindle' },
   { id: 'audio', label: 'Audio' },
 ]
 
-const FORMAT_FILTER_TO_BOOK_FORMAT: Record<Exclude<FormatFilter, 'all'>, BookFormat> = {
+const FILTER_TO_BOOK_FORMAT: Record<'physical' | 'kindle' | 'audio', BookFormat> = {
   physical: 'print',
   kindle: 'kindle',
   audio: 'audio',
 }
+const FORMAT_FILTER_IDS: FilterId[] = ['physical', 'kindle', 'audio']
 
 const TBR_TAG = '__tbr__'
 
@@ -44,18 +46,36 @@ export function LibraryShelf({
 }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [selectedId, setSelectedId] = useState<string | undefined>()
-  const [formatFilter, setFormatFilter] = useState<FormatFilter>('all')
+  const [activeFilters, setActiveFilters] = useState<Set<FilterId>>(new Set())
   const [activeTag, setActiveTag] = useState<string | null>(null)
 
-  const nextReads = useMemo(() => pickNextReads(books, 4), [books])
+  const toggleFilter = (id: FilterId) =>
+    setActiveFilters((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  // Unread + Owned intersect (both must hold, when active); Physical/
+  // Kindle/Audio union (any selected format matches). The two groups
+  // then combine with AND, so e.g. Unread + Kindle shows unread Kindle
+  // books, regardless of ownership.
+  const matchesFilters = (book: Book): boolean => {
+    const unreadOk = !activeFilters.has('unread') || book.readStatus === 'want_to_read'
+    const ownedOk = !activeFilters.has('owned') || book.ownership === 'own'
+    const selectedFormats = FORMAT_FILTER_IDS.filter((id) => activeFilters.has(id))
+    const formatOk = selectedFormats.length === 0 || selectedFormats.some((id) => book.format === FILTER_TO_BOOK_FORMAT[id as 'physical' | 'kindle' | 'audio'])
+    return unreadOk && ownedOk && formatOk
+  }
+
+  const filteredBooks = useMemo(() => books.filter(matchesFilters), [books, activeFilters])
+
+  const nextReads = useMemo(() => pickNextReads(filteredBooks, 4), [filteredBooks])
   const tbrCount = useMemo(() => books.filter((b) => b.readStatus === 'want_to_read').length, [books])
   const spines = useMemo(() => allSpines(books), [books])
 
-  const owned = books.filter(
-    (b) =>
-      b.ownership === 'own' &&
-      (formatFilter === 'all' || b.format === FORMAT_FILTER_TO_BOOK_FORMAT[formatFilter]),
-  )
+  const owned = filteredBooks
 
   const tagShelfBooks =
     activeTag === TBR_TAG
@@ -94,17 +114,17 @@ export function LibraryShelf({
         </div>
       )}
 
-      {/* Format / ownership filter */}
+      {/* Filters: Unread/Owned intersect, Physical/Kindle/Audio union */}
       <div className="flex gap-1.5 text-xs overflow-x-auto">
-        {FORMAT_FILTERS.map((f) => (
+        {FILTERS.map((f) => (
           <button
             key={f.id}
             className={`px-3 py-1.5 rounded-full whitespace-nowrap border transition-colors ${
-              formatFilter === f.id
+              activeFilters.has(f.id)
                 ? 'bg-gold text-night border-gold font-medium'
                 : 'border-hairline text-moon-dim hover:text-moon'
             }`}
-            onClick={() => setFormatFilter(f.id)}
+            onClick={() => toggleFilter(f.id)}
           >
             {f.label}
           </button>
@@ -130,11 +150,6 @@ export function LibraryShelf({
                   )}
                 </button>
               )
-            })}
-            captions={[0, 1, 2, 3].map((i) => {
-              const book = nextReads[i]
-              if (!book) return null
-              return <span className="text-[10px] text-moon line-clamp-2 leading-snug block">{book.title}</span>
             })}
           />
         </div>
@@ -231,7 +246,7 @@ export function LibraryShelf({
           {owned.length === 0 ? (
             <p className="text-sm text-moon-dim">No books match this filter yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div>
               {toShelfRows(owned, 3).map((row, i) => {
                 const padded = [...row, ...Array<Book | null>(3 - row.length).fill(null)]
                 return (
@@ -242,16 +257,6 @@ export function LibraryShelf({
                       book ? (
                         <button className="block w-full h-full" onClick={() => setSelectedId(book.id)}>
                           <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
-                        </button>
-                      ) : null,
-                    )}
-                    captions={padded.map((book) =>
-                      book ? (
-                        <button
-                          className="text-[11px] text-moon text-left line-clamp-2 leading-snug hover:text-gold transition-colors block w-full"
-                          onClick={() => setSelectedId(book.id)}
-                        >
-                          {book.title}
                         </button>
                       ) : null,
                     )}

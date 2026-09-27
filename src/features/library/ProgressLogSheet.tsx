@@ -107,6 +107,23 @@ export function ProgressLogSheet({ book, onCreateLog, onUpdateBook, onClose }: P
           Save
         </button>
       </form>
+
+      <button
+        type="button"
+        className="w-full mt-2 rounded-lg px-3 py-2.5 text-sm border border-hairline text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
+        onClick={() => {
+          const completedAt = new Date().toISOString()
+          if (isPercentBased) {
+            onCreateLog({ percentComplete: 100 })
+          } else if (book.totalPages) {
+            onCreateLog({ currentPage: book.totalPages })
+          }
+          onUpdateBook({ readStatus: 'read', completedAt })
+          onClose()
+        }}
+      >
+        ✓ Mark as finished
+      </button>
     </BottomSheet>
   )
 }

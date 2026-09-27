@@ -1,35 +1,64 @@
-import type { ChartType } from '@/types/charts'
+import type { ChartType, MetricKey } from '@/types/charts'
 import type { ChartPoint } from '@/lib/chartData'
 
 interface Props {
   type: ChartType
   points: ChartPoint[]
+  /** When set to a date-based axis, x-axis labels are rotated vertical
+   *  so dense date ticks (e.g. a year of months) don't overlap. */
+  xAxis?: MetricKey
 }
 
 const GOLD = '#FFD77A'
 const BLUE = '#6E9CFF'
 const PIE_COLORS = ['#FFD77A', '#6E9CFF', '#8FE3A6', '#F293C0', '#B79CFF', '#FF9E6E', '#7FD8E0', '#E8ECF7']
 
+const DATE_AXES: MetricKey[] = ['date_day', 'date_week', 'date_month']
+
 const W = 320
 const H = 200
 const PAD = 28
 
-export function ChartRenderer({ type, points }: Props) {
+export function ChartRenderer({ type, points, xAxis }: Props) {
   if (points.length === 0) {
     return <p className="text-sm text-moon-dim py-8 text-center">No data for this range yet.</p>
   }
 
   if (type === 'pie') return <PieChart points={points} />
 
+  // Rotated date labels need more vertical room below the axis than a
+  // short horizontal label would, so the plot area shrinks a bit more
+  // at the bottom in that case.
+  const rotateLabels = xAxis != null && DATE_AXES.includes(xAxis)
+  const padBottom = rotateLabels ? 56 : PAD
   const max = Math.max(1, ...points.map((p) => p.value))
   const innerW = W - PAD * 2
-  const innerH = H - PAD * 2
+  const innerH = H - PAD - padBottom
   const step = points.length > 1 ? innerW / (points.length - 1) : 0
+  const axisY = H - padBottom
+
+  const renderLabel = (x: number, label: string) =>
+    rotateLabels ? (
+      <text
+        x={x}
+        y={axisY + 8}
+        transform={`rotate(-90, ${x}, ${axisY + 8})`}
+        textAnchor="end"
+        fontSize={8}
+        fill="#8891A8"
+      >
+        {label}
+      </text>
+    ) : (
+      <text x={x} y={axisY + 12} textAnchor="middle" fontSize={8} fill="#8891A8">
+        {label.length > 8 ? label.slice(0, 8) : label}
+      </text>
+    )
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-      <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#8891A8" strokeOpacity={0.3} />
-      <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="#8891A8" strokeOpacity={0.3} />
+      <line x1={PAD} y1={axisY} x2={W - PAD} y2={axisY} stroke="#8891A8" strokeOpacity={0.3} />
+      <line x1={PAD} y1={PAD} x2={PAD} y2={axisY} stroke="#8891A8" strokeOpacity={0.3} />
 
       {type === 'bar' &&
         points.map((p, i) => {
@@ -37,11 +66,9 @@ export function ChartRenderer({ type, points }: Props) {
           const x = PAD + (innerW / points.length) * i + (innerW / points.length - barW) / 2
           const barH = (p.value / max) * innerH
           return (
-            <g key={p.label}>
-              <rect x={x} y={H - PAD - barH} width={barW} height={barH} fill={GOLD} fillOpacity={0.85} rx={2} />
-              <text x={x + barW / 2} y={H - PAD + 12} textAnchor="middle" fontSize={8} fill="#8891A8">
-                {p.label.length > 8 ? p.label.slice(0, 8) : p.label}
-              </text>
+            <g key={p.label + i}>
+              <rect x={x} y={axisY - barH} width={barW} height={barH} fill={GOLD} fillOpacity={0.85} rx={2} />
+              {renderLabel(x + barW / 2, p.label)}
             </g>
           )
         })}
@@ -49,13 +76,13 @@ export function ChartRenderer({ type, points }: Props) {
       {(type === 'line' || type === 'scatter') &&
         points.map((p, i) => {
           const x = PAD + step * i
-          const y = H - PAD - (p.value / max) * innerH
+          const y = axisY - (p.value / max) * innerH
           return (
-            <g key={p.label}>
+            <g key={p.label + i}>
               {type === 'line' && i > 0 && (
                 <line
                   x1={PAD + step * (i - 1)}
-                  y1={H - PAD - (points[i - 1].value / max) * innerH}
+                  y1={axisY - (points[i - 1].value / max) * innerH}
                   x2={x}
                   y2={y}
                   stroke={BLUE}
@@ -63,9 +90,7 @@ export function ChartRenderer({ type, points }: Props) {
                 />
               )}
               <circle cx={x} cy={y} r={3} fill={type === 'scatter' ? GOLD : BLUE} />
-              <text x={x} y={H - PAD + 12} textAnchor="middle" fontSize={8} fill="#8891A8">
-                {p.label.length > 8 ? p.label.slice(0, 8) : p.label}
-              </text>
+              {renderLabel(x, p.label)}
             </g>
           )
         })}

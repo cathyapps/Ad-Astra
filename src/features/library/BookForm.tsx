@@ -23,6 +23,7 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
   const [totalPages, setTotalPages] = useState(initial?.totalPages?.toString() ?? '')
   const [totalMinutes, setTotalMinutes] = useState(initial?.totalMinutes?.toString() ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [coverUrlInput, setCoverUrlInput] = useState(initial?.coverUrl ?? '')
 
   // Fields that come from an Open Library match rather than being typed
   // in directly. Kept separately so a manual edit to, say, the title
@@ -60,6 +61,7 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
           totalPages: totalPages ? Number(totalPages) : undefined,
           totalMinutes: totalMinutes ? Number(totalMinutes) : undefined,
           notes: notes || undefined,
+          coverUrl: coverUrlInput.trim() || undefined,
         })
       }}
     >
@@ -80,6 +82,7 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
                   if (draft.author) setAuthor(draft.author)
                   if (draft.genre) setGenre(draft.genre)
                   if (draft.totalPages != null) setTotalPages(String(draft.totalPages))
+                  if (draft.coverUrl) setCoverUrlInput(draft.coverUrl)
                   setMatched({
                     isbn: draft.isbn,
                     coverUrl: draft.coverUrl,
@@ -181,6 +184,15 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
           />
         </label>
       </div>
+      <label className={labelClass}>
+        Cover image URL
+        <input
+          className={inputClass}
+          placeholder="Paste a link to a cover image"
+          value={coverUrlInput}
+          onChange={(e) => setCoverUrlInput(e.target.value)}
+        />
+      </label>
       <label className={labelClass}>
         Notes
         <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

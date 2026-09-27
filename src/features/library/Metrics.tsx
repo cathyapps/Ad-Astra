@@ -91,6 +91,7 @@ export function Metrics({
               <ChartRenderer
                 type={config.chartType}
                 points={computeChartData(config, books, readingLogs, timeframe)}
+                xAxis={config.xAxis}
               />
             </div>
           ),

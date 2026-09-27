@@ -30,10 +30,10 @@ export function ShelfProgress({ book, logs, onClick }: Props) {
         e.stopPropagation()
         onClick()
       }}
-      className="w-full text-left group"
+      className="w-full text-left group bg-night-deep/70 backdrop-blur-[1px] rounded px-1.5 py-1"
     >
-      <span className="text-[10px] text-moon-dim group-hover:text-moon transition-colors">{label}</span>
-      <span className="block h-1.5 mt-0.5 rounded-full bg-hairline overflow-hidden">
+      <span className="text-[9px] text-moon-dim group-hover:text-moon transition-colors leading-none block">{label}</span>
+      <span className="block h-1 mt-1 rounded-full bg-hairline overflow-hidden">
         <span
           className="block h-full bg-gold rounded-full transition-[width]"
           style={{ width: `${Math.max(0, Math.min(100, barPercent))}%` }}

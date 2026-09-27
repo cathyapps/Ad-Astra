@@ -16,6 +16,12 @@ interface Props {
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
 }
 
+// Covers are shrunk to leave a band above them (inside the shelf photo
+// itself) for the progress bar, so shelf rows can sit flush against each
+// other like real adjacent shelves rather than being separated by a
+// title/progress/actions block underneath each row.
+const COVER_SCALE = 0.76
+
 export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook, onCreateReadingLog }: Props) {
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const [loggingId, setLoggingId] = useState<string | undefined>()
@@ -56,13 +62,14 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
       {reading.length === 0 ? (
         <p className="text-sm text-moon-dim">Nothing in progress — open a book from the Library to start it.</p>
       ) : (
-        <div className="space-y-4">
+        <div>
           {rows.map((row, i) => {
             const padded = [...row, ...Array<Book | null>(3 - row.length).fill(null)]
             return (
               <PhotoShelf
                 key={i}
                 config={MAIN_SHELF}
+                coverScale={COVER_SCALE}
                 covers={padded.map((book) =>
                   book ? (
                     <button className="block w-full h-full" onClick={() => setSelectedId(book.id)}>
@@ -70,24 +77,8 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
                     </button>
                   ) : null,
                 )}
-                captions={padded.map((book) =>
-                  book ? (
-                    <div className="space-y-1">
-                      <button
-                        className="text-[11px] text-moon text-left line-clamp-2 leading-snug hover:text-gold transition-colors block w-full"
-                        onClick={() => setSelectedId(book.id)}
-                      >
-                        {book.title}
-                      </button>
-                      <ShelfProgress book={book} logs={readingLogs} onClick={() => setLoggingId(book.id)} />
-                      <button
-                        className="text-[10px] text-moon-dim hover:text-moon transition-colors"
-                        onClick={() => onUpdateBook(book.id, { readStatus: 'read', completedAt: new Date().toISOString() })}
-                      >
-                        ✓ Mark complete
-                      </button>
-                    </div>
-                  ) : null,
+                topOverlay={padded.map((book) =>
+                  book ? <ShelfProgress book={book} logs={readingLogs} onClick={() => setLoggingId(book.id)} /> : null,
                 )}
               />
             )
