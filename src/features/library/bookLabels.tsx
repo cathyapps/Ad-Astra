@@ -4,6 +4,7 @@ import { allowedBookTransitions } from '@/lib/mediaTransitions'
 export const READ_STATUS_LABELS: Record<BookReadStatus, string> = {
   want_to_read: 'Want to Read',
   reading: 'Reading',
+  paused: 'Paused',
   read: 'Read',
   dnf: 'DNF',
 }
@@ -11,6 +12,7 @@ export const READ_STATUS_LABELS: Record<BookReadStatus, string> = {
 const STATUS_DOT: Record<BookReadStatus, string> = {
   want_to_read: 'bg-moon-dim',
   reading: 'bg-gold',
+  paused: 'bg-moon-dim',
   read: 'bg-cosmic',
   dnf: 'bg-moon-dim',
 }

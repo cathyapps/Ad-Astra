@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { Book, ReadingLog, BookFormat } from '@/types/library'
-import { pickNextReads, allSpines, spinesFor, toShelfRows } from '@/lib/libraryShelf'
-import { MAIN_SHELF, NEXT_READS_SHELF } from './shelfPhotoLayout'
+import { pickNextReads, toShelfRows } from '@/lib/libraryShelf'
+import { ALL_CATEGORY_SPINES, CATEGORY_SHELVES } from '@/lib/categorySpines'
+import { CATEGORY_SHELF, MAIN_SHELF, NEXT_READS_SHELF } from './shelfPhotoLayout'
 import { PhotoShelf } from './PhotoShelf'
+import { SpineShelf } from './SpineShelf'
 import { BookCover } from './BookCover'
 import { BookForm } from './BookForm'
 import { BookDetail } from './BookDetail'
@@ -34,8 +36,6 @@ const FILTER_TO_BOOK_FORMAT: Record<'physical' | 'kindle' | 'audio', BookFormat>
 }
 const FORMAT_FILTER_IDS: FilterId[] = ['physical', 'kindle', 'audio']
 
-const TBR_TAG = '__tbr__'
-
 export function LibraryShelf({
   books,
   readingLogs,
@@ -48,6 +48,7 @@ export function LibraryShelf({
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const [activeFilters, setActiveFilters] = useState<Set<FilterId>>(new Set())
   const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
 
   const toggleFilter = (id: FilterId) =>
     setActiveFilters((prev) => {
@@ -72,17 +73,11 @@ export function LibraryShelf({
   const filteredBooks = useMemo(() => books.filter(matchesFilters), [books, activeFilters])
 
   const nextReads = useMemo(() => pickNextReads(filteredBooks, 4), [filteredBooks])
-  const tbrCount = useMemo(() => books.filter((b) => b.readStatus === 'want_to_read').length, [books])
-  const spines = useMemo(() => allSpines(books), [books])
 
   const owned = filteredBooks
 
-  const tagShelfBooks =
-    activeTag === TBR_TAG
-      ? books.filter((b) => b.readStatus === 'want_to_read')
-      : activeTag
-        ? books.filter((b) => spinesFor(b).includes(activeTag))
-        : []
+  const activeSpine = ALL_CATEGORY_SPINES.find((sp) => sp.label === activeTag)
+  const tagShelfBooks = activeSpine ? books.filter(activeSpine.matches) : []
 
   const selected = books.find((b) => b.id === selectedId)
 
@@ -155,46 +150,38 @@ export function LibraryShelf({
         </div>
       )}
 
-      {/* Tag spines shelf */}
-      {spines.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-moon mb-2">Browse by Category</h3>
-          <div className="flex flex-col gap-1 pb-3 library-shelf-ledge">
-            {tbrCount > 0 && (
-              <button
-                onClick={() => setActiveTag((cur) => (cur === TBR_TAG ? null : TBR_TAG))}
-                className={`text-left text-xs border-l-4 rounded px-3 py-2 transition-colors ${
-                  activeTag === TBR_TAG
-                    ? 'border-l-gold bg-card-hover text-moon'
-                    : 'border-l-cosmic bg-card text-moon-dim hover:text-moon'
-                }`}
-              >
-                To Be Read ({tbrCount})
-              </button>
-            )}
-            {spines.map((s) => (
-              <button
-                key={s.label}
-                onClick={() => setActiveTag((cur) => (cur === s.label ? null : s.label))}
-                className={`text-left text-xs border-l-4 rounded px-3 py-2 transition-colors ${
-                  activeTag === s.label
-                    ? 'border-l-gold bg-card-hover text-moon'
-                    : 'border-l-moon-dim/50 bg-card text-moon-dim hover:text-moon'
-                }`}
-              >
-                {s.label} ({s.count})
-              </button>
+      {/* Category spines: four shelves, collapsed until opened */}
+      <div>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-sm font-medium text-moon mb-2"
+          aria-expanded={categoriesOpen}
+          onClick={() => setCategoriesOpen((v) => !v)}
+        >
+          <span className="text-[10px] text-moon-dim">{categoriesOpen ? '▾' : '▸'}</span>
+          Browse by Category
+        </button>
+        {categoriesOpen && (
+          <div>
+            {CATEGORY_SHELVES.map((shelf, i) => (
+              <SpineShelf
+                key={i}
+                config={CATEGORY_SHELF}
+                labels={shelf.map((sp) => sp.label)}
+                activeLabel={activeTag}
+                onSelect={(label) => setActiveTag((cur) => (cur === label ? null : label))}
+              />
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Active tag shelf, or the owned collection */}
       {activeTag ? (
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-moon">
-              {activeTag === TBR_TAG ? 'To Be Read' : activeTag} ({tagShelfBooks.length})
+              {activeTag} ({tagShelfBooks.length})
             </h3>
             <button className="text-xs text-cosmic hover:text-moon transition-colors" onClick={() => setActiveTag(null)}>
               Back to Library

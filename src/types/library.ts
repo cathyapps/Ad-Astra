@@ -12,8 +12,8 @@ export const BOOK_OWNERSHIP_OPTIONS: BookOwnership[] = ['own', 'library', 'tbd']
 export type BookFormat = 'kindle' | 'audio' | 'print' | 'tbd'
 export const BOOK_FORMAT_OPTIONS: BookFormat[] = ['kindle', 'audio', 'print', 'tbd']
 
-export type BookReadStatus = 'want_to_read' | 'reading' | 'read' | 'dnf'
-export const BOOK_READ_STATUS_ORDER: BookReadStatus[] = ['want_to_read', 'reading', 'read', 'dnf']
+export type BookReadStatus = 'want_to_read' | 'reading' | 'paused' | 'read' | 'dnf'
+export const BOOK_READ_STATUS_ORDER: BookReadStatus[] = ['want_to_read', 'reading', 'paused', 'read', 'dnf']
 
 // Book tags used to live on the Bucket List's now-removed "book"
 // category (books to read are tracked entirely here in the Library —

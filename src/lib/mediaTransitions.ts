@@ -1,15 +1,13 @@
 import type { BookReadStatus as BookStatus } from '@/types/library'
 import type { WatchStatus } from '@/types/watching'
 
-const BOOK_ALLOWED: Record<BookStatus, BookStatus[]> = {
-  want_to_read: ['reading'],
-  reading: ['want_to_read', 'read', 'dnf'],
-  read: ['reading'], // re-read
-  dnf: ['want_to_read', 'reading'],
-}
+const ALL_BOOK_STATUSES: BookStatus[] = ['want_to_read', 'reading', 'paused', 'read', 'dnf']
 
+// Books can move between any two statuses (e.g. reading -> TBR, read ->
+// reading for a re-read, paused -> DNF), so this is just "everything
+// except where it already is".
 export function allowedBookTransitions(from: BookStatus): BookStatus[] {
-  return BOOK_ALLOWED[from] ?? []
+  return ALL_BOOK_STATUSES.filter((s) => s !== from)
 }
 
 const WATCH_ALLOWED: Record<WatchStatus, WatchStatus[]> = {

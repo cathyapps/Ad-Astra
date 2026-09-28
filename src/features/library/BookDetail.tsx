@@ -18,11 +18,21 @@ interface Props {
 export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog, onClose }: Props) {
   const [editing, setEditing] = useState(false)
   const [loggingOpen, setLoggingOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
 
   const logs = readingLogs
     .filter((l) => l.bookId === book.id)
     .sort((a, b) => b.date.localeCompare(a.date))
   const options = allowedBookTransitions(book.readStatus)
+
+  const changeStatus = (s: Book['readStatus']) => {
+    onUpdate({
+      readStatus: s,
+      startedAt: s === 'reading' && !book.startedAt ? new Date().toISOString() : book.startedAt,
+      completedAt: s === 'read' || s === 'dnf' ? new Date().toISOString() : undefined,
+    })
+    setStatusOpen(false)
+  }
 
   if (editing) {
     return (
@@ -50,7 +60,32 @@ export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog,
             <h2 className="font-display text-lg text-moon">{book.title}</h2>
             <p className="text-sm text-moon-dim">{book.author}</p>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <ReadStatusBadge status={book.readStatus} />
+              <div className="relative">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                  onClick={() => setStatusOpen((v) => !v)}
+                  aria-haspopup="listbox"
+                  aria-expanded={statusOpen}
+                >
+                  <ReadStatusBadge status={book.readStatus} />
+                  <span className="text-[10px] text-moon-dim">▾</span>
+                </button>
+                {statusOpen && (
+                  <div className="absolute left-0 top-full mt-1 z-20 min-w-[9rem] border border-hairline rounded-lg bg-card shadow-lg overflow-hidden">
+                    {options.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="block w-full text-left text-xs px-3 py-2 text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
+                        onClick={() => changeStatus(s)}
+                      >
+                        {READ_STATUS_LABELS[s]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <span className="text-xs text-moon-dim">
                 {book.ownership} · {book.format}
               </span>
@@ -85,21 +120,6 @@ export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog,
             {book.isNextUp ? '★ Next up' : '☆ Mark as next up'}
           </button>
         )}
-        {options.map((s) => (
-          <button
-            key={s}
-            className="text-xs border border-hairline rounded-full px-3 py-1.5 text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
-            onClick={() =>
-              onUpdate({
-                readStatus: s,
-                startedAt: s === 'reading' && !book.startedAt ? new Date().toISOString() : book.startedAt,
-                completedAt: s === 'read' || s === 'dnf' ? new Date().toISOString() : undefined,
-              })
-            }
-          >
-            Move to {READ_STATUS_LABELS[s]}
-          </button>
-        ))}
       </div>
 
       {book.readStatus === 'read' && (

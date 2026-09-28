@@ -26,9 +26,15 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const [loggingId, setLoggingId] = useState<string | undefined>()
 
-  const reading = books
-    .filter((b) => b.readStatus === 'reading')
-    .sort((a, b) => lastActivityDate(b, readingLogs).localeCompare(lastActivityDate(a, readingLogs)))
+  const byRecentActivity = (a: Book, b: Book) =>
+    lastActivityDate(b, readingLogs).localeCompare(lastActivityDate(a, readingLogs))
+  // Actively-reading books first (most recently touched on top), then
+  // paused ones after them, dimmed, so they stay reachable for logging
+  // progress or resuming without crowding the active shelf.
+  const reading = [
+    ...books.filter((b) => b.readStatus === 'reading').sort(byRecentActivity),
+    ...books.filter((b) => b.readStatus === 'paused').sort(byRecentActivity),
+  ]
 
   const selected = books.find((b) => b.id === selectedId)
   const logging = books.find((b) => b.id === loggingId)
@@ -72,7 +78,10 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
                 coverScale={COVER_SCALE}
                 covers={padded.map((book) =>
                   book ? (
-                    <button className="block w-full h-full" onClick={() => setSelectedId(book.id)}>
+                    <button
+                      className={`block w-full h-full ${book.readStatus === 'paused' ? 'opacity-55' : ''}`}
+                      onClick={() => setSelectedId(book.id)}
+                    >
                       <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
                     </button>
                   ) : null,

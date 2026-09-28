@@ -71,3 +71,35 @@ export function captionColumns(config: ShelfPhotoConfig): string {
   cols.push(100 - (last.left + last.width))
   return cols.map((c) => `${c}%`).join(' ')
 }
+
+/** A photographed shelf of blank book spines that get text labels laid
+ *  over them (rather than covers dropped into empty slots). */
+export interface SpineShelfConfig {
+  imageSrc: string
+  aspectRatio: number
+  slots: ShelfSlot[]
+  /** Top edge and height of the spines, as % of the photo's height. */
+  topPct: number
+  heightPct: number
+  /** Slot indexes whose spine is light enough to need dark label text. */
+  darkTextSlots: number[]
+}
+
+// Measured from the 1891x832 source photo: left/right pixel edges of each
+// of the ten spines, and where their tops and bottoms fall.
+const CAT_W = 1891
+const CAT_H = 832
+const CAT_LEFT = [189, 353, 506, 668, 817, 956, 1103, 1252, 1404, 1567]
+const CAT_RIGHT = [335, 491, 652, 804, 944, 1093, 1239, 1389, 1548, 1704]
+
+export const CATEGORY_SHELF: SpineShelfConfig = {
+  imageSrc: '/library/category-shelf.jpg',
+  aspectRatio: CAT_W / CAT_H,
+  slots: CAT_LEFT.map((l, i) => ({
+    left: (l / CAT_W) * 100,
+    width: ((CAT_RIGHT[i] - l) / CAT_W) * 100,
+  })),
+  topPct: (104 / CAT_H) * 100,
+  heightPct: ((663 - 104) / CAT_H) * 100,
+  darkTextSlots: [4], // the mustard spine
+}
