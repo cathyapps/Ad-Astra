@@ -52,7 +52,13 @@ export interface Book {
   totalPages?: number
   totalMinutes?: number // audiobook runtime
 
-  rating?: number // 1-5, set on completion
+  // Ratings are 0.25-5 in quarter-star steps, set once a book is read.
+  // `rating` is the OVERALL rating (it predates the aspect ratings, so
+  // existing ratings are already the overall one).
+  rating?: number
+  ratingPlot?: number
+  ratingCharacters?: number
+  ratingWriting?: number
   notes?: string
   tags: string[]
 

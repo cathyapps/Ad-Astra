@@ -129,6 +129,7 @@ export default function App() {
             onUpdateConstellation={adAstra.updateConstellation}
             onDeleteConstellation={adAstra.deleteConstellation}
             onUpdateBook={adAstra.updateBook}
+            onCreateBook={adAstra.createBook}
             onUpdateBucketListItem={adAstra.updateBucketListItem}
           />
         )}
@@ -147,6 +148,8 @@ export default function App() {
             readingLogs={adAstra.readingLogs}
             chartConfigs={adAstra.chartConfigs}
             metricsTimeframe={adAstra.settings.readingMetricsTimeframe}
+            readingGoals={{ books: adAstra.settings.readingGoalBooks, pages: adAstra.settings.readingGoalPages }}
+            onChangeGoals={(g) => adAstra.updateSettings({ readingGoalBooks: g.books, readingGoalPages: g.pages })}
             onCreateBook={adAstra.createBook}
             onUpdateBook={adAstra.updateBook}
             onDeleteBook={adAstra.deleteBook}

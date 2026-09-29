@@ -29,6 +29,7 @@ interface Props {
   onUpdateConstellation: (id: string, patch: Partial<Constellation>) => void
   onDeleteConstellation: (id: string) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
+  onCreateBook: (input: Partial<Book> & { title: string }) => void
   onUpdateBucketListItem: (id: string, patch: Partial<BucketListItem>) => void
 }
 
@@ -49,6 +50,7 @@ export function Universe({
   onUpdateConstellation,
   onDeleteConstellation,
   onUpdateBook,
+  onCreateBook,
   onUpdateBucketListItem,
 }: Props) {
   const [selectedStarId, setSelectedStarId] = useState<string | undefined>()
@@ -85,6 +87,7 @@ export function Universe({
       onUpdateTask={onUpdateTask}
       onDeleteTask={onDeleteTask}
       onUpdateBook={onUpdateBook}
+      onCreateBook={onCreateBook}
       onUpdateBucketListItem={onUpdateBucketListItem}
       onUpdateConstellation={onUpdateConstellation}
       onDelete={() => {

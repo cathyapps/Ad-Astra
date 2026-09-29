@@ -164,6 +164,8 @@ export function settingsFromRow(row: Record<string, unknown> | null): AppSetting
   return {
     currentOrbitLimit: (row?.current_orbit_limit as number) ?? 5,
     readingMetricsTimeframe: (row?.reading_metrics_timeframe as AppSettings['readingMetricsTimeframe']) ?? '30d',
+    readingGoalBooks: (row?.reading_goal_books as number) ?? undefined,
+    readingGoalPages: (row?.reading_goal_pages as number) ?? undefined,
   }
 }
 
@@ -273,7 +275,10 @@ export function bookFromRow(row: Record<string, unknown>): Book {
     readStatus: row.read_status as Book['readStatus'],
     totalPages: (row.total_pages as number) ?? undefined,
     totalMinutes: (row.total_minutes as number) ?? undefined,
-    rating: (row.rating as number) ?? undefined,
+    rating: row.rating != null ? Number(row.rating) : undefined,
+    ratingPlot: row.rating_plot != null ? Number(row.rating_plot) : undefined,
+    ratingCharacters: row.rating_characters != null ? Number(row.rating_characters) : undefined,
+    ratingWriting: row.rating_writing != null ? Number(row.rating_writing) : undefined,
     notes: (row.notes as string) ?? undefined,
     tags: (row.tags as string[]) ?? [],
     isNextUp: (row.is_next_up as boolean) ?? false,
@@ -303,7 +308,12 @@ export function bookToRow(input: Partial<Book>, userId: string): Record<string, 
   if (input.readStatus !== undefined) row.read_status = input.readStatus
   if (input.totalPages !== undefined) row.total_pages = input.totalPages
   if (input.totalMinutes !== undefined) row.total_minutes = input.totalMinutes
-  if (input.rating !== undefined) row.rating = input.rating
+  // A rating key that is present but undefined means "cleared" (written as
+  // null); a key that is absent means "leave alone".
+  if ('rating' in input) row.rating = input.rating ?? null
+  if ('ratingPlot' in input) row.rating_plot = input.ratingPlot ?? null
+  if ('ratingCharacters' in input) row.rating_characters = input.ratingCharacters ?? null
+  if ('ratingWriting' in input) row.rating_writing = input.ratingWriting ?? null
   if (input.notes !== undefined) row.notes = input.notes
   if (input.tags !== undefined) row.tags = input.tags
   if (input.isNextUp !== undefined) row.is_next_up = input.isNextUp

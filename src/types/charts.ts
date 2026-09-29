@@ -28,11 +28,13 @@ export type MetricKey =
   | 'genre'
   | 'format'
   | 'ownership'
+  | 'mood'
   | 'pages_read'
   | 'minutes_spent'
   | 'books_completed'
   | 'reading_speed'
   | 'book_count'
+  | 'avg_mood'
 
 export const METRIC_LABELS: Record<MetricKey, string> = {
   date_day: 'Date (day)',
@@ -42,11 +44,13 @@ export const METRIC_LABELS: Record<MetricKey, string> = {
   genre: 'Genre',
   format: 'Format',
   ownership: 'Ownership',
+  mood: 'Mood',
   pages_read: 'Pages read',
   minutes_spent: 'Minutes spent reading',
   books_completed: 'Books completed',
   reading_speed: 'Reading speed (pages/hour)',
   book_count: 'Book count',
+  avg_mood: 'Average mood (dark ↔ light)',
 }
 
 // Which metrics make sense as an X axis vs a Y axis. Time/categorical
@@ -60,6 +64,7 @@ export const X_AXIS_METRICS: MetricKey[] = [
   'genre',
   'format',
   'ownership',
+  'mood',
 ]
 
 export const Y_AXIS_METRICS: MetricKey[] = [
@@ -68,6 +73,7 @@ export const Y_AXIS_METRICS: MetricKey[] = [
   'books_completed',
   'reading_speed',
   'book_count',
+  'avg_mood',
 ]
 
 export const DEFAULT_VIEW_NAME = 'default'

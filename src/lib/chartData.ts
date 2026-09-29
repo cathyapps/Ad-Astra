@@ -1,6 +1,7 @@
 import type { Book, ReadingLog } from '@/types/library'
 import type { ChartConfig, MetricKey, MetricsTimeframe } from '@/types/charts'
 import { deriveLogs, type DerivedLog } from './readingStats'
+import { averageMood, moodsOf } from './moods'
 
 export interface ChartPoint {
   label: string
@@ -8,7 +9,7 @@ export interface ChartPoint {
 }
 
 const TIME_AXES: MetricKey[] = ['date_day', 'date_week', 'date_month', 'day_of_week']
-const CATEGORY_AXES: MetricKey[] = ['genre', 'format', 'ownership']
+const CATEGORY_AXES: MetricKey[] = ['genre', 'format', 'ownership', 'mood']
 
 export function timeframeRange(timeframe: MetricsTimeframe, now: Date = new Date()): { start: Date; end: Date } {
   const end = now
@@ -117,6 +118,8 @@ function aggregateY(yAxis: MetricKey, logs: DerivedLog[], books: Book[]): number
     }
     case 'book_count':
       return new Set([...logs.map((d) => d.book.id), ...books.map((b) => b.id)]).size
+    case 'avg_mood':
+      return averageMood(books) ?? 0
     default:
       return 0
   }
@@ -141,8 +144,9 @@ export function computeChartData(
       const key = timeKeyFor(config.xAxis, d.log.date)
       buckets.set(key, [...(buckets.get(key) ?? []), d])
     }
-    // books_completed by time bucket needs the book's completedAt, not log dates.
-    if (config.yAxis === 'books_completed') {
+    // books_completed / avg_mood by time bucket need the book's completedAt,
+    // not log dates.
+    if (config.yAxis === 'books_completed' || config.yAxis === 'avg_mood') {
       const completedBuckets = new Map<string, Book[]>()
       for (const b of books) {
         if (b.readStatus !== 'read' || !b.completedAt || !inRange(b.completedAt, start, end)) continue
@@ -153,6 +157,14 @@ export function computeChartData(
         config.xAxis === 'day_of_week'
           ? DAY_NAMES
           : Array.from(new Set([...buckets.keys(), ...completedBuckets.keys()])).sort()
+      if (config.yAxis === 'avg_mood') {
+        // Only buckets that have at least one book with a mood tag get a
+        // point — an empty month isn't a "neutral" month.
+        return keys.flatMap((key) => {
+          const avg = averageMood(completedBuckets.get(key) ?? [])
+          return avg == null ? [] : [{ label: displayLabel(config.xAxis, key), value: avg }]
+        })
+      }
       return keys.map((key) => ({ label: displayLabel(config.xAxis, key), value: (completedBuckets.get(key) ?? []).length }))
     }
     const keys = config.xAxis === 'day_of_week' ? DAY_NAMES : Array.from(buckets.keys()).sort()
@@ -165,9 +177,12 @@ export function computeChartData(
   if (CATEGORY_AXES.includes(config.xAxis)) {
     const bookGroups = new Map<string, Book[]>()
     for (const b of books) {
-      const key = categoryKeyFor(config.xAxis, b)
-      if (!key) continue
-      bookGroups.set(key, [...(bookGroups.get(key) ?? []), b])
+      // A book can carry several moods; it counts once under each of them.
+      const keys = config.xAxis === 'mood' ? moodsOf(b) : [categoryKeyFor(config.xAxis, b)]
+      for (const key of keys) {
+        if (!key) continue
+        bookGroups.set(key, [...(bookGroups.get(key) ?? []), b])
+      }
     }
     return Array.from(bookGroups.entries())
       .map(([label, groupBooks]) => {

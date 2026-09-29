@@ -187,4 +187,6 @@ import type { MetricsTimeframe } from './charts'
 export interface AppSettings {
   currentOrbitLimit: number // default 5, configurable (§4)
   readingMetricsTimeframe: MetricsTimeframe // last-used timeframe on the Metrics view, remembered across sessions
+  readingGoalBooks?: number // yearly books target, shown atop Library > Metrics
+  readingGoalPages?: number // yearly pages target
 }

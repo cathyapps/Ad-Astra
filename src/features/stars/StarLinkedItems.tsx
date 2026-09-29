@@ -3,6 +3,10 @@ import type { Star } from '@/types'
 import type { Book } from '@/types/library'
 import type { BucketListItem } from '@/types/bucketList'
 import { BUCKET_LIST_CATEGORY_LABELS } from '@/types/bucketList'
+import { BottomSheet } from '@/features/shared/BottomSheet'
+import { BookForm } from '@/features/library/BookForm'
+import { AttachPicker } from './AttachPicker'
+import type { FacetDef, PickerItem } from './AttachPicker'
 
 interface Props {
   star: Star
@@ -10,7 +14,27 @@ interface Props {
   bucketListItems: BucketListItem[]
   onUpdateBook: (id: string, patch: Partial<Book>) => void
   onUpdateBucketListItem: (id: string, patch: Partial<BucketListItem>) => void
+  onCreateBook: (input: Partial<Book> & { title: string }) => void
 }
+
+const READ_STATUS_LABELS: Record<Book['readStatus'], string> = {
+  want_to_read: 'Unread',
+  reading: 'Reading',
+  paused: 'Paused',
+  read: 'Read',
+  dnf: 'Did not finish',
+}
+const FORMAT_LABELS: Record<Book['format'], string> = {
+  print: 'Physical',
+  kindle: 'Kindle',
+  audio: 'Audio',
+  tbd: 'Not sure yet',
+}
+
+const uniqueSorted = (values: (string | undefined)[]) =>
+  Array.from(new Set(values.filter((v): v is string => !!v))).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' }),
+  )
 
 function toggleStarId(ids: string[], starId: string): string[] {
   return ids.includes(starId) ? ids.filter((id) => id !== starId) : [...ids, starId]
@@ -25,13 +49,84 @@ export function StarLinkedItems({
   bucketListItems,
   onUpdateBook,
   onUpdateBucketListItem,
+  onCreateBook,
 }: Props) {
   const [attaching, setAttaching] = useState<'book' | 'bucket' | null>(null)
+  const [creatingBook, setCreatingBook] = useState(false)
 
   const linkedBooks = books.filter((b) => b.relatedStarIds.includes(star.id))
   const linkedItems = bucketListItems.filter((i) => i.relatedStarIds.includes(star.id))
   const availableBooks = books.filter((b) => !b.relatedStarIds.includes(star.id))
   const availableItems = bucketListItems.filter((i) => !i.relatedStarIds.includes(star.id))
+
+  const bookPickerItems: PickerItem[] = availableBooks.map((b) => ({
+    id: b.id,
+    label: b.title,
+    sub: [b.author, READ_STATUS_LABELS[b.readStatus]].filter(Boolean).join(' · '),
+    facets: {
+      status: b.readStatus,
+      ownership: b.ownership === 'own' ? 'owned' : 'unowned',
+      genre: b.genre,
+      format: b.format,
+      tag: b.tags,
+    },
+  }))
+  const bookFacets: FacetDef[] = [
+    {
+      key: 'status',
+      label: 'Read status',
+      options: (Object.keys(READ_STATUS_LABELS) as Book['readStatus'][])
+        .filter((v) => availableBooks.some((b) => b.readStatus === v))
+        .map((v) => ({ value: v, label: READ_STATUS_LABELS[v] })),
+    },
+    {
+      key: 'ownership',
+      label: 'Ownership',
+      options: [
+        { value: 'owned', label: 'Owned' },
+        { value: 'unowned', label: 'Unowned' },
+      ],
+    },
+    {
+      key: 'genre',
+      label: 'Genre',
+      options: uniqueSorted(availableBooks.map((b) => b.genre)).map((g) => ({ value: g, label: g })),
+    },
+    {
+      key: 'format',
+      label: 'Format',
+      options: (Object.keys(FORMAT_LABELS) as Book['format'][])
+        .filter((v) => availableBooks.some((b) => b.format === v))
+        .map((v) => ({ value: v, label: FORMAT_LABELS[v] })),
+    },
+    {
+      key: 'tag',
+      label: 'Tag',
+      options: uniqueSorted(availableBooks.flatMap((b) => b.tags)).map((t) => ({ value: t, label: t })),
+    },
+  ].filter((f) => f.options.length > 0)
+
+  const bucketPickerItems: PickerItem[] = availableItems.map((i) => ({
+    id: i.id,
+    label: i.name,
+    sub: BUCKET_LIST_CATEGORY_LABELS[i.category],
+    facets: { category: i.category, tag: i.tags },
+  }))
+  const bucketFacets: FacetDef[] = [
+    {
+      key: 'category',
+      label: 'Type',
+      options: Array.from(new Set(availableItems.map((i) => i.category))).map((c) => ({
+        value: c,
+        label: BUCKET_LIST_CATEGORY_LABELS[c],
+      })),
+    },
+    {
+      key: 'tag',
+      label: 'Tag',
+      options: uniqueSorted(availableItems.flatMap((i) => i.tags)).map((t) => ({ value: t, label: t })),
+    },
+  ].filter((f) => f.options.length > 0)
 
   return (
     <div className="space-y-3">
@@ -58,29 +153,6 @@ export function StarLinkedItems({
             </button>
           ))}
         </div>
-        {attaching === 'book' && (
-          <select
-            className="mt-2 w-full border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon"
-            value=""
-            onChange={(e) => {
-              if (!e.target.value) return
-              onUpdateBook(e.target.value, {
-                relatedStarIds: toggleStarId(
-                  books.find((b) => b.id === e.target.value)?.relatedStarIds ?? [],
-                  star.id,
-                ),
-              })
-              setAttaching(null)
-            }}
-          >
-            <option value="">Choose a book…</option>
-            {availableBooks.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.title}
-              </option>
-            ))}
-          </select>
-        )}
       </div>
 
       <div>
@@ -110,30 +182,61 @@ export function StarLinkedItems({
             </button>
           ))}
         </div>
-        {attaching === 'bucket' && (
-          <select
-            className="mt-2 w-full border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon"
-            value=""
-            onChange={(e) => {
-              if (!e.target.value) return
-              onUpdateBucketListItem(e.target.value, {
-                relatedStarIds: toggleStarId(
-                  bucketListItems.find((i) => i.id === e.target.value)?.relatedStarIds ?? [],
-                  star.id,
-                ),
-              })
-              setAttaching(null)
-            }}
-          >
-            <option value="">Choose a bucket list item…</option>
-            {availableItems.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.name} ({BUCKET_LIST_CATEGORY_LABELS[i.category]})
-              </option>
-            ))}
-          </select>
-        )}
       </div>
+
+      {attaching === 'book' && (
+        <AttachPicker
+          title="Attach a book"
+          items={bookPickerItems}
+          facets={bookFacets}
+          searchPlaceholder="Search title or author…"
+          emptyText="No books match those filters."
+          onClose={() => setAttaching(null)}
+          onPick={(id) => {
+            const book = books.find((b) => b.id === id)
+            if (book) onUpdateBook(id, { relatedStarIds: toggleStarId(book.relatedStarIds, star.id) })
+            setAttaching(null)
+          }}
+          addNew={{
+            label: '+ Add a new book to the library',
+            onClick: () => {
+              setAttaching(null)
+              setCreatingBook(true)
+            },
+          }}
+        />
+      )}
+
+      {attaching === 'bucket' && (
+        <AttachPicker
+          title="Attach a bucket list item"
+          items={bucketPickerItems}
+          facets={bucketFacets}
+          searchPlaceholder="Search bucket list…"
+          emptyText="No items match those filters."
+          onClose={() => setAttaching(null)}
+          onPick={(id) => {
+            const item = bucketListItems.find((i) => i.id === id)
+            if (item) {
+              onUpdateBucketListItem(id, { relatedStarIds: toggleStarId(item.relatedStarIds, star.id) })
+            }
+            setAttaching(null)
+          }}
+        />
+      )}
+
+      {creatingBook && (
+        <BottomSheet title="Add a book" onClose={() => setCreatingBook(false)}>
+          <BookForm
+            onCancel={() => setCreatingBook(false)}
+            onSave={(input) => {
+              // Created already linked to this Star.
+              onCreateBook({ ...input, relatedStarIds: [star.id] })
+              setCreatingBook(false)
+            }}
+          />
+        </BottomSheet>
+      )}
     </div>
   )
 }

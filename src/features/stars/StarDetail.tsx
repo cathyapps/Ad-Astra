@@ -24,6 +24,7 @@ interface Props {
   onUpdateTask: (id: string, patch: Partial<Task>) => void
   onDeleteTask?: (id: string) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
+  onCreateBook: (input: Partial<Book> & { title: string }) => void
   onUpdateBucketListItem: (id: string, patch: Partial<BucketListItem>) => void
   onUpdateConstellation: (id: string, patch: Partial<Constellation>) => void
   onDelete: () => void
@@ -43,6 +44,7 @@ export function StarDetail({
   onUpdateTask,
   onDeleteTask,
   onUpdateBook,
+  onCreateBook,
   onUpdateBucketListItem,
   onUpdateConstellation,
   onDelete,
@@ -177,6 +179,7 @@ export function StarDetail({
           bucketListItems={bucketListItems}
           onUpdateBook={onUpdateBook}
           onUpdateBucketListItem={onUpdateBucketListItem}
+          onCreateBook={onCreateBook}
         />
       </div>
 

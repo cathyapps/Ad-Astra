@@ -189,6 +189,8 @@ export class SupabaseStore implements AdAstraStore {
       user_id: this.userId,
       current_orbit_limit: merged.currentOrbitLimit,
       reading_metrics_timeframe: merged.readingMetricsTimeframe,
+      reading_goal_books: merged.readingGoalBooks ?? null,
+      reading_goal_pages: merged.readingGoalPages ?? null,
     })
     if (error) throw error
     return merged

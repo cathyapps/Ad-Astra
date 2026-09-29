@@ -1,3 +1,4 @@
+import { StarRating } from '@/features/shared/StarRating'
 import { useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
 import { BOOK_TAG_SUGGESTIONS } from '@/types/library'
@@ -123,17 +124,30 @@ export function BookDetail({ book, readingLogs, onUpdate, onDelete, onCreateLog,
       </div>
 
       {book.readStatus === 'read' && (
-        <label className="text-sm block text-moon-dim">
-          Rating: <span className="text-gold font-medium">{book.rating ?? '—'}</span>
-          <input
-            type="range"
-            min={1}
-            max={5}
-            value={book.rating ?? 3}
-            onChange={(e) => onUpdate({ rating: Number(e.target.value) })}
-            className="w-full mt-1 accent-gold"
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-moon">Ratings</h3>
+          <StarRating
+            label="Plot"
+            value={book.ratingPlot}
+            onChange={(v) => onUpdate({ ratingPlot: v })}
           />
-        </label>
+          <StarRating
+            label="Characters"
+            value={book.ratingCharacters}
+            onChange={(v) => onUpdate({ ratingCharacters: v })}
+          />
+          <StarRating
+            label="Writing"
+            value={book.ratingWriting}
+            onChange={(v) => onUpdate({ ratingWriting: v })}
+          />
+          <StarRating
+            emphasis
+            label="Overall"
+            value={book.rating}
+            onChange={(v) => onUpdate({ rating: v })}
+          />
+        </div>
       )}
 
       <div>

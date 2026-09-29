@@ -5,12 +5,16 @@ import { TIMEFRAME_LABELS } from '@/types/charts'
 import { computeChartData } from '@/lib/chartData'
 import { ChartRenderer } from './ChartRenderer'
 import { ChartBuilderForm } from './ChartBuilderForm'
+import { ReadingGoalCard } from './ReadingGoalCard'
+import type { ReadingGoals } from './ReadingGoalCard'
 
 interface Props {
   books: Book[]
   readingLogs: ReadingLog[]
   chartConfigs: ChartConfig[]
   timeframe: MetricsTimeframe
+  readingGoals: ReadingGoals
+  onChangeGoals: (goals: ReadingGoals) => void
   onChangeTimeframe: (t: MetricsTimeframe) => void
   onCreateChart: (input: { title: string; chartType: ChartType; xAxis: MetricKey; yAxis: MetricKey }) => void
   onUpdateChart: (id: string, patch: Partial<ChartConfig>) => void
@@ -24,6 +28,8 @@ export function Metrics({
   readingLogs,
   chartConfigs,
   timeframe,
+  readingGoals,
+  onChangeGoals,
   onChangeTimeframe,
   onCreateChart,
   onUpdateChart,
@@ -36,6 +42,8 @@ export function Metrics({
 
   return (
     <div className="space-y-4">
+      <ReadingGoalCard books={books} goals={readingGoals} onChangeGoals={onChangeGoals} />
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-medium text-moon">Reading Metrics</h3>
         <select
@@ -92,6 +100,7 @@ export function Metrics({
                 type={config.chartType}
                 points={computeChartData(config, books, readingLogs, timeframe)}
                 xAxis={config.xAxis}
+                yAxis={config.yAxis}
               />
             </div>
           ),

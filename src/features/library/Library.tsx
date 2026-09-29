@@ -4,6 +4,7 @@ import type { ChartConfig, ChartType, MetricKey, MetricsTimeframe } from '@/type
 import { InProgressShelf } from './InProgressShelf'
 import { LibraryShelf } from './LibraryShelf'
 import { Metrics } from './Metrics'
+import type { ReadingGoals } from './ReadingGoalCard'
 
 type SubTab = 'inProgress' | 'library' | 'metrics'
 
@@ -18,9 +19,10 @@ interface Props {
   readingLogs: ReadingLog[]
   chartConfigs: ChartConfig[]
   metricsTimeframe: MetricsTimeframe
+  readingGoals: ReadingGoals
+  onChangeGoals: (goals: ReadingGoals) => void
   onCreateBook: (input: Partial<Book> & { title: string }) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
-  onBulkUpdateBooks: (patches: { id: string; patch: Partial<Book> }[]) => Promise<number>
   onDeleteBook: (id: string) => void
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
   onChangeTimeframe: (t: MetricsTimeframe) => void
@@ -37,9 +39,10 @@ export function Library({
   readingLogs,
   chartConfigs,
   metricsTimeframe,
+  readingGoals,
+  onChangeGoals,
   onCreateBook,
   onUpdateBook,
-  onBulkUpdateBooks,
   onDeleteBook,
   onCreateReadingLog,
   onChangeTimeframe,
@@ -83,7 +86,6 @@ export function Library({
           readingLogs={readingLogs}
           onCreateBook={onCreateBook}
           onUpdateBook={onUpdateBook}
-          onBulkUpdateBooks={onBulkUpdateBooks}
           onDeleteBook={onDeleteBook}
           onCreateReadingLog={onCreateReadingLog}
         />
@@ -95,6 +97,8 @@ export function Library({
           readingLogs={readingLogs}
           chartConfigs={chartConfigs}
           timeframe={metricsTimeframe}
+          readingGoals={readingGoals}
+          onChangeGoals={onChangeGoals}
           onChangeTimeframe={onChangeTimeframe}
           onCreateChart={onCreateChart}
           onUpdateChart={onUpdateChart}
