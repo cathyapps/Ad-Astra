@@ -112,6 +112,7 @@ export default function App() {
             metricsTimeframe={adAstra.settings.readingMetricsTimeframe}
             onCreateBook={adAstra.createBook}
             onUpdateBook={adAstra.updateBook}
+            onBulkUpdateBooks={adAstra.updateBooksBulk}
             onDeleteBook={adAstra.deleteBook}
             onCreateReadingLog={adAstra.createReadingLog}
             onChangeTimeframe={(t) => adAstra.updateSettings({ readingMetricsTimeframe: t })}

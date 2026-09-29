@@ -20,6 +20,7 @@ interface Props {
   metricsTimeframe: MetricsTimeframe
   onCreateBook: (input: Partial<Book> & { title: string }) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
+  onBulkUpdateBooks: (patches: { id: string; patch: Partial<Book> }[]) => Promise<number>
   onDeleteBook: (id: string) => void
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
   onChangeTimeframe: (t: MetricsTimeframe) => void
@@ -38,6 +39,7 @@ export function Library({
   metricsTimeframe,
   onCreateBook,
   onUpdateBook,
+  onBulkUpdateBooks,
   onDeleteBook,
   onCreateReadingLog,
   onChangeTimeframe,
@@ -81,6 +83,7 @@ export function Library({
           readingLogs={readingLogs}
           onCreateBook={onCreateBook}
           onUpdateBook={onUpdateBook}
+          onBulkUpdateBooks={onBulkUpdateBooks}
           onDeleteBook={onDeleteBook}
           onCreateReadingLog={onCreateReadingLog}
         />

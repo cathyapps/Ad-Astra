@@ -9,12 +9,14 @@ import { BookCover } from './BookCover'
 import { BookForm } from './BookForm'
 import { BookDetail } from './BookDetail'
 import { ReadStatusBadge } from './bookLabels'
+import { EnrichBooksPanel } from './EnrichBooksPanel'
 
 interface Props {
   books: Book[]
   readingLogs: ReadingLog[]
   onCreateBook: (input: Partial<Book> & { title: string }) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
+  onBulkUpdateBooks: (patches: { id: string; patch: Partial<Book> }[]) => Promise<number>
   onDeleteBook: (id: string) => void
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
 }
@@ -41,6 +43,7 @@ export function LibraryShelf({
   readingLogs,
   onCreateBook,
   onUpdateBook,
+  onBulkUpdateBooks,
   onDeleteBook,
   onCreateReadingLog,
 }: Props) {
@@ -254,6 +257,8 @@ export function LibraryShelf({
           )}
         </div>
       )}
+
+      <EnrichBooksPanel books={books} onApplyPatches={onBulkUpdateBooks} />
     </div>
   )
 }

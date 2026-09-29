@@ -306,6 +306,25 @@ export function useAdAstra() {
     [reload],
   )
 
+  // Applies many book patches with a single reload at the end (calling
+  // updateBook in a loop would reload the whole app once per book).
+  // Resolves with how many individual writes failed.
+  const updateBooksBulk = useCallback(
+    async (patches: { id: string; patch: Partial<Book> }[]) => {
+      let failed = 0
+      for (const { id, patch } of patches) {
+        try {
+          await db.updateBook(id, patch)
+        } catch {
+          failed++
+        }
+      }
+      await reload()
+      return failed
+    },
+    [reload],
+  )
+
   const deleteBook = useCallback(
     async (id: string) => {
       await db.deleteBook(id)
@@ -438,6 +457,7 @@ export function useAdAstra() {
     deleteViewingSession,
     createBook,
     updateBook,
+    updateBooksBulk,
     deleteBook,
     createReadingLog,
     updateReadingLog,
