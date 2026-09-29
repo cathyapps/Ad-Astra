@@ -17,6 +17,7 @@ interface Props {
 
 export function BucketListItemRow({ item, tagSuggestions, onUpdate, onDelete, onPromoteToStar }: Props) {
   const [editing, setEditing] = useState(false)
+  const isTravel = item.category === 'travel_destination'
   const isWatchable = item.category === 'show' || item.category === 'movie'
 
   function cycleStatus() {
@@ -59,6 +60,10 @@ export function BucketListItemRow({ item, tagSuggestions, onUpdate, onDelete, on
             </span>
           ))}
         </div>
+      )}
+
+      {isTravel && item.status === 'progressing_to_star' && item.relatedStarIds.length > 0 && (
+        <p className="text-xs text-cosmic">Promoted — real planning now happens on its Star in the Universe.</p>
       )}
 
       {editing && (
