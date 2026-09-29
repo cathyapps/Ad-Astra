@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import type { Star, StarStage } from '@/types'
 import { STAGE_LABELS } from '@/features/stars/stageLabels'
 
@@ -12,14 +11,9 @@ interface Props {
   stars: Star[]
   onSelect: (id: string) => void
   selectedId?: string
-  // Rendered inline right after the selected Star's row instead of
-  // wherever the caller puts it — keeps the edit panel next to what you
-  // clicked instead of jumping your scroll position to the top of the
-  // Universe screen.
-  inlineDetail?: ReactNode
 }
 
-export function UniverseLists({ stars, onSelect, selectedId, inlineDetail }: Props) {
+export function UniverseLists({ stars, onSelect, selectedId }: Props) {
   return (
     <div className="space-y-5">
       {DISPLAY_ORDER.map((stage) => {
@@ -46,7 +40,6 @@ export function UniverseLists({ stars, onSelect, selectedId, inlineDetail }: Pro
                       <span className="text-xs text-gold ml-2">{s.progress}%</span>
                     )}
                   </button>
-                  {s.id === selectedId && inlineDetail && <div className="mt-2">{inlineDetail}</div>}
                 </div>
               ))}
             </div>

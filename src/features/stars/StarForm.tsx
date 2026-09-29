@@ -10,6 +10,7 @@ const CATEGORIES: StarCategory[] = [
   'creative',
   'home',
   'business',
+  'work',
   'reading',
   'health',
   'relationship',

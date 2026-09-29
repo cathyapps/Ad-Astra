@@ -182,6 +182,7 @@ export class LocalStore implements AdAstraStore {
       taskType: input.taskType,
       habitFrequency: input.habitFrequency,
       isGoal: input.isGoal,
+      habitCompletions: input.habitCompletions ?? [],
     }
     write(KEYS.tasks, [...tasks, task])
     return task

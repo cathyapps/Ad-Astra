@@ -44,17 +44,64 @@ export const MAIN_SHELF: ShelfPhotoConfig = {
   ],
 }
 
+/** Three evenly spaced main-shelf slots starting at `left`, same size and
+ *  gap as MAIN_SHELF so covers look identical whichever photo is behind. */
+const mainSlots = (left: number): ShelfSlot[] => [
+  { left, width: 19.3333 },
+  { left: left + 22.3333, width: 19.3333 },
+  { left: left + 44.6667, width: 19.3333 },
+]
+
+/** Same photo size as MAIN_SHELF, no lamp — bookends on both sides. */
+export const MAIN_SHELF_NO_LAMP: ShelfPhotoConfig = {
+  imageSrc: '/library/main-shelf-nolamp.jpg',
+  aspectRatio: 2043 / 770,
+  floorFromBottomPct: 16.8,
+  slots: mainSlots(19.5),
+}
+
+/** MAIN_SHELF mirrored horizontally, so the lamp is on the right. */
+export const MAIN_SHELF_LAMP_RIGHT: ShelfPhotoConfig = {
+  imageSrc: '/library/main-shelf-lamp-right.jpg',
+  aspectRatio: 2043 / 770,
+  floorFromBottomPct: 16.8,
+  slots: mainSlots(16),
+}
+
+/** Shelf photo rotation for the main library: lamp left, no lamp, lamp
+ *  right, no lamp, then repeat — so stacked shelves don't all look alike. */
+const MAIN_SHELF_ROTATION: ShelfPhotoConfig[] = [
+  MAIN_SHELF,
+  MAIN_SHELF_NO_LAMP,
+  MAIN_SHELF_LAMP_RIGHT,
+  MAIN_SHELF_NO_LAMP,
+]
+
+export function mainShelfForRow(rowIndex: number): ShelfPhotoConfig {
+  return MAIN_SHELF_ROTATION[rowIndex % MAIN_SHELF_ROTATION.length]
+}
+
+// Covers are spread evenly across the empty span between the lamp-side
+// books (~16.8% from the left) and the right-hand bookends (~87%), rather
+// than bunched against the right with a gap on the left.
+const NEXT_READS_COUNT = 5
+const NEXT_READS_SLOT_WIDTH = 12.625
+const NEXT_READS_SPAN_START = 16.8
+const NEXT_READS_SPAN_END = 87
+const NEXT_READS_GAP =
+  (NEXT_READS_SPAN_END - NEXT_READS_SPAN_START - NEXT_READS_COUNT * NEXT_READS_SLOT_WIDTH) / (NEXT_READS_COUNT + 1)
+
 export const NEXT_READS_SHELF: ShelfPhotoConfig = {
   imageSrc: '/library/next-reads-shelf.jpg',
   aspectRatio: 2243 / 701,
   floorFromBottomPct: 16.7,
-  slots: [
-    { left: 30, width: 12.625 },
-    { left: 45.125, width: 12.625 },
-    { left: 60.25, width: 12.625 },
-    { left: 75.375, width: 12.625 },
-  ],
+  slots: Array.from({ length: NEXT_READS_COUNT }, (_, i) => ({
+    left: NEXT_READS_SPAN_START + NEXT_READS_GAP + i * (NEXT_READS_SLOT_WIDTH + NEXT_READS_GAP),
+    width: NEXT_READS_SLOT_WIDTH,
+  })),
 }
+
+export const NEXT_READS_COUNT_PER_SHELF = NEXT_READS_COUNT
 
 /** Derives caption-row grid columns (leading spacer, slot, gap, slot,
  *  gap, ..., trailing spacer) from a shelf's slots, so caption text below
@@ -81,25 +128,34 @@ export interface SpineShelfConfig {
   /** Top edge and height of the spines, as % of the photo's height. */
   topPct: number
   heightPct: number
+  /** Where the printed label may sit, as % of the spine's own height from
+   *  its top / bottom — keeps text clear of the gold-leaf bands. */
+  labelInsetTopPct: number
+  labelInsetBottomPct: number
   /** Slot indexes whose spine is light enough to need dark label text. */
   darkTextSlots: number[]
 }
 
-// Measured from the 1891x832 source photo: left/right pixel edges of each
-// of the ten spines, and where their tops and bottoms fall.
+// Measured from the 1891x831 gold-leaf source photo: left/right pixel
+// edges of each of the ten spines, and where their tops and bottoms fall.
+// The gold-leaf bands sit at roughly y 120-160 and y 604-645.
 const CAT_W = 1891
-const CAT_H = 832
-const CAT_LEFT = [189, 353, 506, 668, 817, 956, 1103, 1252, 1404, 1567]
-const CAT_RIGHT = [335, 491, 652, 804, 944, 1093, 1239, 1389, 1548, 1704]
+const CAT_H = 831
+const CAT_LEFT = [235, 383, 533, 680, 823, 970, 1116, 1262, 1410, 1553]
+const CAT_RIGHT = [362, 520, 663, 806, 950, 1098, 1245, 1393, 1537, 1680]
+const CAT_TOP = 110
+const CAT_BOTTOM = 650
 
 export const CATEGORY_SHELF: SpineShelfConfig = {
-  imageSrc: '/library/category-shelf.jpg',
+  imageSrc: '/library/category-shelf-gold.jpg',
   aspectRatio: CAT_W / CAT_H,
   slots: CAT_LEFT.map((l, i) => ({
     left: (l / CAT_W) * 100,
     width: ((CAT_RIGHT[i] - l) / CAT_W) * 100,
   })),
-  topPct: (104 / CAT_H) * 100,
-  heightPct: ((663 - 104) / CAT_H) * 100,
+  topPct: (CAT_TOP / CAT_H) * 100,
+  heightPct: ((CAT_BOTTOM - CAT_TOP) / CAT_H) * 100,
+  labelInsetTopPct: ((170 - CAT_TOP) / (CAT_BOTTOM - CAT_TOP)) * 100,
+  labelInsetBottomPct: ((CAT_BOTTOM - 594) / (CAT_BOTTOM - CAT_TOP)) * 100,
   darkTextSlots: [4], // the mustard spine
 }

@@ -10,6 +10,7 @@ import { ConstellationForm, ConstellationDetail } from './ConstellationDetail'
 import { StarForm } from '@/features/stars/StarForm'
 import { StarDetail } from '@/features/stars/StarDetail'
 import { BottomSheet } from '@/features/shared/BottomSheet'
+import { DetailModal } from '@/features/shared/DetailModal'
 
 interface Props {
   stars: Star[]
@@ -52,11 +53,6 @@ export function Universe({
 }: Props) {
   const [selectedStarId, setSelectedStarId] = useState<string | undefined>()
   const [selectedConstellationId, setSelectedConstellationId] = useState<string | undefined>()
-  // Where the selected Star's detail/edit panel should render — "top"
-  // (above the map, the original behavior) for map/orbit selections, or
-  // "list" to render inline right below the clicked row in the All
-  // Stars list instead of jumping the person's scroll position.
-  const [detailAnchor, setDetailAnchor] = useState<'top' | 'list'>('top')
   const [showStarForm, setShowStarForm] = useState(false)
   const [showConstellationForm, setShowConstellationForm] = useState(false)
   const [showAllStars, setShowAllStars] = useState(false)
@@ -65,10 +61,9 @@ export function Universe({
   const selectedStar = stars.find((s) => s.id === selectedStarId)
   const selectedConstellation = constellations.find((c) => c.id === selectedConstellationId)
 
-  function selectStar(id: string, anchor: 'top' | 'list' = 'top') {
+  function selectStar(id: string) {
     setSelectedConstellationId(undefined)
     setSelectedStarId(id)
-    setDetailAnchor(anchor)
   }
   function selectConstellation(id: string) {
     setSelectedStarId(undefined)
@@ -76,6 +71,7 @@ export function Universe({
   }
 
   const starDetail = selectedStar && (
+    <DetailModal onClose={() => setSelectedStarId(undefined)}>
     <StarDetail
       star={selectedStar}
       tasks={tasks}
@@ -97,6 +93,7 @@ export function Universe({
       }}
       onClose={() => setSelectedStarId(undefined)}
     />
+    </DetailModal>
   )
 
   return (
@@ -119,20 +116,22 @@ export function Universe({
         </div>
       </div>
 
-      {detailAnchor === 'top' && starDetail}
+      {starDetail}
 
       {selectedConstellation && (
-        <ConstellationDetail
-          constellation={selectedConstellation}
-          stars={stars}
-          onUpdate={(patch) => onUpdateConstellation(selectedConstellation.id, patch)}
-          onDelete={() => {
-            onDeleteConstellation(selectedConstellation.id)
-            setSelectedConstellationId(undefined)
-          }}
-          onSelectStar={selectStar}
-          onClose={() => setSelectedConstellationId(undefined)}
-        />
+        <DetailModal onClose={() => setSelectedConstellationId(undefined)}>
+          <ConstellationDetail
+            constellation={selectedConstellation}
+            stars={stars}
+            onUpdate={(patch) => onUpdateConstellation(selectedConstellation.id, patch)}
+            onDelete={() => {
+              onDeleteConstellation(selectedConstellation.id)
+              setSelectedConstellationId(undefined)
+            }}
+            onSelectStar={selectStar}
+            onClose={() => setSelectedConstellationId(undefined)}
+          />
+        </DetailModal>
       )}
 
       <StarMap stars={stars} constellations={constellations} onSelect={selectStar} selectedId={selectedStarId} />
@@ -198,9 +197,8 @@ export function Universe({
         {showAllStars && (
           <UniverseLists
             stars={stars}
-            onSelect={(id) => selectStar(id, 'list')}
+            onSelect={selectStar}
             selectedId={selectedStarId}
-            inlineDetail={detailAnchor === 'list' ? starDetail : undefined}
           />
         )}
       </div>

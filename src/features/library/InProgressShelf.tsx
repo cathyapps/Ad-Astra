@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
 import { lastActivityDate, toShelfRows } from '@/lib/libraryShelf'
-import { MAIN_SHELF } from './shelfPhotoLayout'
+import { mainShelfForRow } from './shelfPhotoLayout'
 import { PhotoShelf } from './PhotoShelf'
 import { BookCover } from './BookCover'
 import { ShelfProgress } from './ShelfProgress'
 import { ProgressLogSheet } from './ProgressLogSheet'
 import { BookDetail } from './BookDetail'
+import { DetailModal } from '@/features/shared/DetailModal'
 
 interface Props {
   books: Book[]
@@ -43,17 +44,19 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
   return (
     <div className="space-y-5">
       {selected && (
-        <BookDetail
-          book={selected}
-          readingLogs={readingLogs}
-          onUpdate={(patch) => onUpdateBook(selected.id, patch)}
-          onDelete={() => {
-            onDeleteBook(selected.id)
-            setSelectedId(undefined)
-          }}
-          onCreateLog={(input) => onCreateReadingLog({ ...input, bookId: selected.id })}
-          onClose={() => setSelectedId(undefined)}
-        />
+        <DetailModal onClose={() => setSelectedId(undefined)}>
+          <BookDetail
+            book={selected}
+            readingLogs={readingLogs}
+            onUpdate={(patch) => onUpdateBook(selected.id, patch)}
+            onDelete={() => {
+              onDeleteBook(selected.id)
+              setSelectedId(undefined)
+            }}
+            onCreateLog={(input) => onCreateReadingLog({ ...input, bookId: selected.id })}
+            onClose={() => setSelectedId(undefined)}
+          />
+        </DetailModal>
       )}
 
       {logging && (
@@ -74,7 +77,7 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
             return (
               <PhotoShelf
                 key={i}
-                config={MAIN_SHELF}
+                config={mainShelfForRow(i)}
                 coverScale={COVER_SCALE}
                 covers={padded.map((book) =>
                   book ? (

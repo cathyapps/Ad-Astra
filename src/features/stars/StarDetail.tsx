@@ -9,6 +9,7 @@ import { StarLinkedItems } from './StarLinkedItems'
 import { EditButton } from '@/features/shared/EditButton'
 import { BottomSheet } from '@/features/shared/BottomSheet'
 import { StarForm } from './StarForm'
+import { StarSetup } from './StarSetup'
 
 interface Props {
   star: Star
@@ -49,6 +50,7 @@ export function StarDetail({
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [pickingConstellations, setPickingConstellations] = useState(false)
+  const [settingUp, setSettingUp] = useState(false)
   const [constellationDraft, setConstellationDraft] = useState<string[]>([])
   const options = ALLOWED_STAGES[star.stage]
   const starTasks = tasks.filter((t) => t.starId === star.id)
@@ -150,13 +152,21 @@ export function StarDetail({
             {done}/{starTasks.length} done
           </span>
         </div>
+        {starTasks.length === 0 && (
+          <p className="text-sm text-moon-dim mb-2">No planets or moons yet.</p>
+        )}
         <TaskList
           starId={star.id}
           tasks={starTasks}
-          onCreate={onCreateTask}
           onUpdate={onUpdateTask}
           onDelete={onDeleteTask}
         />
+        <button
+          className="mt-2 w-full border border-hairline rounded-lg px-3 py-2 text-sm text-moon hover:bg-card-hover transition-colors"
+          onClick={() => setSettingUp(true)}
+        >
+          + Set up planets &amp; moons
+        </button>
       </div>
 
       <div>
@@ -173,6 +183,15 @@ export function StarDetail({
       <button className="text-xs text-moon-dim hover:text-red-400 transition-colors" onClick={onDelete}>
         Delete star
       </button>
+
+      {settingUp && (
+        <StarSetup
+          star={star}
+          tasks={starTasks}
+          onCreateTask={onCreateTask}
+          onClose={() => setSettingUp(false)}
+        />
+      )}
 
       {editing && (
         <BottomSheet title="Edit star" onClose={() => setEditing(false)}>

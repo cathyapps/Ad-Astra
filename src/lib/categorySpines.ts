@@ -36,7 +36,7 @@ export const CATEGORY_SHELVES: CategorySpine[][] = [
     { label: 'slow-paced', matches: moodTag('slow-paced') },
     { label: 'Fiction', matches: (b) => isNonFiction(b) === false },
     { label: 'Non-Fiction', matches: (b) => isNonFiction(b) === true },
-    { label: 'TBR', matches: (b) => b.readStatus === 'want_to_read' },
+    { label: 'OUABC', matches: moodTag('ouabc') },
   ],
   [
     { label: 'Classic', matches: genreIs('Classic') },

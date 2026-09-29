@@ -7,10 +7,15 @@ interface Props {
   onSelect: (label: string) => void
 }
 
-/** One shelf of blank book spines with a category name printed
- *  vertically on each, like reading spines on a real shelf. Tapping a
- *  spine selects that category. Label size is in container-query units so
- *  the text scales with the photo instead of overflowing on small screens. */
+/** One shelf of book spines with a category name printed vertically on
+ *  each, like reading spines on a real shelf. Tapping a spine selects that
+ *  category. Label size is in container-query units so the text scales
+ *  with the photo instead of overflowing on small screens, and longer
+ *  names shrink to stay between the spine's gold-leaf bands. */
+const MAX_LABEL_CQW = 2.2
+// Rough width of one serif character in em (incl. letter-spacing), used
+// to fit a label into the space between the gold bands.
+const CHAR_EM = 0.66
 export function SpineShelf({ config, labels, activeLabel, onSelect }: Props) {
   return (
     <div
@@ -28,6 +33,11 @@ export function SpineShelf({ config, labels, activeLabel, onSelect }: Props) {
         if (!label) return null
         const active = activeLabel === label
         const dark = config.darkTextSlots.includes(i)
+        // Spine label zone, in cqw (same unit as the font size).
+        const spineHeightCqw = config.heightPct / config.aspectRatio
+        const labelZoneCqw =
+          (spineHeightCqw * (100 - config.labelInsetTopPct - config.labelInsetBottomPct)) / 100
+        const fontCqw = Math.min(MAX_LABEL_CQW, labelZoneCqw / (CHAR_EM * label.length))
         return (
           <button
             key={label}
@@ -45,11 +55,18 @@ export function SpineShelf({ config, labels, activeLabel, onSelect }: Props) {
               height: `${config.heightPct}%`,
             }}
           >
+            {/* Absolute offsets (unlike padding) are relative to the
+                spine's height, keeping the label between the gold bands. */}
+            <span
+              className="absolute inset-x-0 flex items-center justify-center"
+              style={{ top: `${config.labelInsetTopPct}%`, bottom: `${config.labelInsetBottomPct}%` }}
+            >
             <span
               style={{
+                fontFamily: 'var(--font-display)',
                 writingMode: 'vertical-rl',
                 transform: 'rotate(180deg)',
-                fontSize: '2.2cqw',
+                fontSize: `${fontCqw}cqw`,
                 whiteSpace: 'nowrap',
                 fontWeight: 600,
                 letterSpacing: '0.04em',
@@ -58,6 +75,7 @@ export function SpineShelf({ config, labels, activeLabel, onSelect }: Props) {
               }}
             >
               {label}
+            </span>
             </span>
           </button>
         )

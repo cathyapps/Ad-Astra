@@ -2,106 +2,148 @@ import { useMemo, useState } from 'react'
 import type { Book, ReadingLog, BookFormat } from '@/types/library'
 import { pickNextReads, toShelfRows } from '@/lib/libraryShelf'
 import { ALL_CATEGORY_SPINES, CATEGORY_SHELVES } from '@/lib/categorySpines'
-import { CATEGORY_SHELF, MAIN_SHELF, NEXT_READS_SHELF } from './shelfPhotoLayout'
+import { CATEGORY_SHELF, NEXT_READS_COUNT_PER_SHELF, NEXT_READS_SHELF, mainShelfForRow } from './shelfPhotoLayout'
 import { PhotoShelf } from './PhotoShelf'
 import { SpineShelf } from './SpineShelf'
 import { BookCover } from './BookCover'
 import { BookForm } from './BookForm'
 import { BookDetail } from './BookDetail'
-import { ReadStatusBadge } from './bookLabels'
-import { EnrichBooksPanel } from './EnrichBooksPanel'
+import { DetailModal } from '@/features/shared/DetailModal'
+import { BottomSheet } from '@/features/shared/BottomSheet'
 
 interface Props {
   books: Book[]
   readingLogs: ReadingLog[]
   onCreateBook: (input: Partial<Book> & { title: string }) => void
   onUpdateBook: (id: string, patch: Partial<Book>) => void
-  onBulkUpdateBooks: (patches: { id: string; patch: Partial<Book> }[]) => Promise<number>
   onDeleteBook: (id: string) => void
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
 }
 
-type FilterId = 'unread' | 'owned' | 'physical' | 'kindle' | 'audio'
+type FormatFilterId = 'physical' | 'kindle' | 'audio'
 
-const FILTERS: { id: FilterId; label: string }[] = [
-  { id: 'unread', label: 'Unread' },
-  { id: 'owned', label: 'Owned' },
+// Unread and Owned are 3-way toggles that cycle on each tap:
+//   Read status: unread only -> read only -> show all -> (back to unread)
+//   Ownership:   owned only  -> unowned only -> show all -> (back to owned)
+type ReadFilter = 'unread' | 'read' | 'all'
+type OwnedFilter = 'owned' | 'unowned' | 'all'
+
+const READ_FILTER_CYCLE: ReadFilter[] = ['unread', 'read', 'all']
+const OWNED_FILTER_CYCLE: OwnedFilter[] = ['owned', 'unowned', 'all']
+const nextInCycle = <T,>(cycle: T[], cur: T): T => cycle[(cycle.indexOf(cur) + 1) % cycle.length]
+
+const READ_FILTER_LABELS: Record<ReadFilter, string> = { unread: 'Unread', read: 'Read', all: 'Any status' }
+const OWNED_FILTER_LABELS: Record<OwnedFilter, string> = { owned: 'Owned', unowned: 'Unowned', all: 'Any ownership' }
+
+const FORMAT_FILTERS: { id: FormatFilterId; label: string }[] = [
   { id: 'physical', label: 'Physical' },
   { id: 'kindle', label: 'Kindle' },
   { id: 'audio', label: 'Audio' },
 ]
 
-const FILTER_TO_BOOK_FORMAT: Record<'physical' | 'kindle' | 'audio', BookFormat> = {
+const FILTER_TO_BOOK_FORMAT: Record<FormatFilterId, BookFormat> = {
   physical: 'print',
   kindle: 'kindle',
   audio: 'audio',
 }
-const FORMAT_FILTER_IDS: FilterId[] = ['physical', 'kindle', 'audio']
 
 export function LibraryShelf({
   books,
   readingLogs,
   onCreateBook,
   onUpdateBook,
-  onBulkUpdateBooks,
   onDeleteBook,
   onCreateReadingLog,
 }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [selectedId, setSelectedId] = useState<string | undefined>()
-  const [activeFilters, setActiveFilters] = useState<Set<FilterId>>(new Set())
+  // Default view: Unread + Owned.
+  const [readFilter, setReadFilter] = useState<ReadFilter>('unread')
+  const [ownedFilter, setOwnedFilter] = useState<OwnedFilter>('owned')
+  const [formatFilters, setFormatFilters] = useState<Set<FormatFilterId>>(new Set())
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [search, setSearch] = useState('')
 
-  const toggleFilter = (id: FilterId) =>
-    setActiveFilters((prev) => {
+  const toggleFormat = (id: FormatFilterId) =>
+    setFormatFilters((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
 
-  // Unread + Owned intersect (both must hold, when active); Physical/
-  // Kindle/Audio union (any selected format matches). The two groups
-  // then combine with AND, so e.g. Unread + Kindle shows unread Kindle
-  // books, regardless of ownership.
+  // Read status and ownership each apply their own setting; Physical/
+  // Kindle/Audio union (any selected format matches). The groups then
+  // combine with AND, so e.g. Unread + Kindle shows unread Kindle books.
+  // "Unread" means still on the TBR (want_to_read); "Read" means finished.
   const matchesFilters = (book: Book): boolean => {
-    const unreadOk = !activeFilters.has('unread') || book.readStatus === 'want_to_read'
-    const ownedOk = !activeFilters.has('owned') || book.ownership === 'own'
-    const selectedFormats = FORMAT_FILTER_IDS.filter((id) => activeFilters.has(id))
-    const formatOk = selectedFormats.length === 0 || selectedFormats.some((id) => book.format === FILTER_TO_BOOK_FORMAT[id as 'physical' | 'kindle' | 'audio'])
-    return unreadOk && ownedOk && formatOk
+    const readOk =
+      readFilter === 'all' ||
+      (readFilter === 'unread' ? book.readStatus === 'want_to_read' : book.readStatus === 'read')
+    const ownedOk =
+      ownedFilter === 'all' ||
+      (ownedFilter === 'owned' ? book.ownership === 'own' : book.ownership !== 'own')
+    const formatOk =
+      formatFilters.size === 0 ||
+      Array.from(formatFilters).some((id) => book.format === FILTER_TO_BOOK_FORMAT[id])
+    return readOk && ownedOk && formatOk
   }
 
-  const filteredBooks = useMemo(() => books.filter(matchesFilters), [books, activeFilters])
+  const filteredBooks = useMemo(
+    () => books.filter(matchesFilters),
+    [books, readFilter, ownedFilter, formatFilters],
+  )
 
-  const nextReads = useMemo(() => pickNextReads(filteredBooks, 4), [filteredBooks])
+  const nextReads = useMemo(
+    () => pickNextReads(filteredBooks, NEXT_READS_COUNT_PER_SHELF),
+    [filteredBooks],
+  )
 
-  const owned = filteredBooks
-
+  // Tapping a genre/category spine narrows My Shelf to that tag (on top
+  // of the filters above) instead of showing a separate list.
   const activeSpine = ALL_CATEGORY_SPINES.find((sp) => sp.label === activeTag)
-  const tagShelfBooks = activeSpine ? books.filter(activeSpine.matches) : []
+
+  // Searching looks across the whole library: the filters and category
+  // are paused while there's text in the box, so a book you've already
+  // read (or don't own) can still be found under the default Unread +
+  // Owned view.
+  const query = search.trim().toLowerCase()
+  const searching = query.length > 0
+  const owned = useMemo(() => {
+    if (searching) {
+      return books.filter(
+        (b) =>
+          b.title.toLowerCase().includes(query) ||
+          (b.author ?? '').toLowerCase().includes(query) ||
+          b.tags.some((t) => t.toLowerCase().includes(query)),
+      )
+    }
+    return activeSpine ? filteredBooks.filter(activeSpine.matches) : filteredBooks
+  }, [books, filteredBooks, activeSpine, searching, query])
 
   const selected = books.find((b) => b.id === selectedId)
 
   return (
     <div className="space-y-6">
       {selected && (
-        <BookDetail
-          book={selected}
-          readingLogs={readingLogs}
-          onUpdate={(patch) => onUpdateBook(selected.id, patch)}
-          onDelete={() => {
-            onDeleteBook(selected.id)
-            setSelectedId(undefined)
-          }}
-          onCreateLog={(input) => onCreateReadingLog({ ...input, bookId: selected.id })}
-          onClose={() => setSelectedId(undefined)}
-        />
+        <DetailModal onClose={() => setSelectedId(undefined)}>
+          <BookDetail
+            book={selected}
+            readingLogs={readingLogs}
+            onUpdate={(patch) => onUpdateBook(selected.id, patch)}
+            onDelete={() => {
+              onDeleteBook(selected.id)
+              setSelectedId(undefined)
+            }}
+            onCreateLog={(input) => onCreateReadingLog({ ...input, bookId: selected.id })}
+            onClose={() => setSelectedId(undefined)}
+          />
+        </DetailModal>
       )}
 
       {showForm && (
-        <div className="border border-hairline rounded-xl p-4 bg-card">
+        <BottomSheet title="Add book" onClose={() => setShowForm(false)}>
           <BookForm
             onCancel={() => setShowForm(false)}
             onSave={(input) => {
@@ -109,20 +151,78 @@ export function LibraryShelf({
               setShowForm(false)
             }}
           />
-        </div>
+        </BottomSheet>
       )}
 
-      {/* Filters: Unread/Owned intersect, Physical/Kindle/Audio union */}
-      <div className="flex gap-1.5 text-xs overflow-x-auto">
-        {FILTERS.map((f) => (
+      {/* Search + Add Book */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-moon-dim pointer-events-none"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="search"
+            className="w-full border border-hairline bg-night rounded-full pl-9 pr-3 py-2 text-sm text-moon placeholder:text-moon-dim/60"
+            placeholder="Search title, author, tag…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search library"
+          />
+        </div>
+        <button
+          className="border border-hairline rounded-full px-3 py-2 text-sm text-moon hover:bg-card-hover transition-colors shrink-0"
+          onClick={() => setShowForm(true)}
+        >
+          + Add Book
+        </button>
+      </div>
+
+      {/* Filters: Unread and Owned are 3-way toggles; formats union */}
+      <div className={`flex gap-1.5 text-xs overflow-x-auto transition-opacity ${searching ? 'opacity-40' : ''}`}>
+        <button
+          type="button"
+          aria-label={`Read status filter: ${READ_FILTER_LABELS[readFilter]}. Tap to change.`}
+          className={`px-3 py-1.5 rounded-full whitespace-nowrap border transition-colors ${
+            readFilter !== 'all'
+              ? 'bg-gold text-night border-gold font-medium'
+              : 'border-hairline text-moon-dim hover:text-moon'
+          }`}
+          onClick={() => setReadFilter((cur) => nextInCycle(READ_FILTER_CYCLE, cur))}
+        >
+          {READ_FILTER_LABELS[readFilter]}
+        </button>
+        <button
+          type="button"
+          aria-label={`Ownership filter: ${OWNED_FILTER_LABELS[ownedFilter]}. Tap to change.`}
+          className={`px-3 py-1.5 rounded-full whitespace-nowrap border transition-colors ${
+            ownedFilter !== 'all'
+              ? 'bg-gold text-night border-gold font-medium'
+              : 'border-hairline text-moon-dim hover:text-moon'
+          }`}
+          onClick={() => setOwnedFilter((cur) => nextInCycle(OWNED_FILTER_CYCLE, cur))}
+        >
+          {OWNED_FILTER_LABELS[ownedFilter]}
+        </button>
+        {FORMAT_FILTERS.map((f) => (
           <button
             key={f.id}
             className={`px-3 py-1.5 rounded-full whitespace-nowrap border transition-colors ${
-              activeFilters.has(f.id)
+              formatFilters.has(f.id)
                 ? 'bg-gold text-night border-gold font-medium'
                 : 'border-hairline text-moon-dim hover:text-moon'
             }`}
-            onClick={() => toggleFilter(f.id)}
+            onClick={() => toggleFormat(f.id)}
           >
             {f.label}
           </button>
@@ -135,7 +235,7 @@ export function LibraryShelf({
           <h3 className="text-sm font-medium text-moon mb-2">Next Reads</h3>
           <PhotoShelf
             config={NEXT_READS_SHELF}
-            covers={[0, 1, 2, 3].map((i) => {
+            covers={Array.from({ length: NEXT_READS_COUNT_PER_SHELF }, (_, i) => {
               const book = nextReads[i]
               if (!book) return null
               return (
@@ -157,7 +257,7 @@ export function LibraryShelf({
       <div>
         <button
           type="button"
-          className="flex items-center gap-1.5 text-sm font-medium text-moon mb-2"
+          className="flex items-center gap-1.5 font-display text-sm font-medium text-moon mb-2"
           aria-expanded={categoriesOpen}
           onClick={() => setCategoriesOpen((v) => !v)}
         >
@@ -179,86 +279,53 @@ export function LibraryShelf({
         )}
       </div>
 
-      {/* Active tag shelf, or the owned collection */}
-      {activeTag ? (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-moon">
-              {activeTag} ({tagShelfBooks.length})
-            </h3>
-            <button className="text-xs text-cosmic hover:text-moon transition-colors" onClick={() => setActiveTag(null)}>
-              Back to Library
-            </button>
-          </div>
-          {tagShelfBooks.length === 0 ? (
-            <p className="text-sm text-moon-dim">Nothing here.</p>
+      {/* My Shelf — filtered by the toggles, the tapped category, or the search box */}
+      <div>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h3 className="text-sm font-medium text-moon">
+            My Shelf ({owned.length})
+          </h3>
+          {searching ? (
+            <span className="text-xs text-moon-dim">Searching all books</span>
           ) : (
-            <div className="space-y-1.5">
-              {tagShelfBooks.map((book) => (
-                <div
-                  key={book.id}
-                  className="flex items-center gap-2.5 border border-hairline rounded-lg px-3 py-2 bg-card"
-                >
-                  <button className="flex items-center gap-2.5 flex-1 text-left" onClick={() => setSelectedId(book.id)}>
-                    <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} size="sm" />
-                    <span className="text-sm text-moon flex-1">{book.title}</span>
-                  </button>
-                  {book.readStatus === 'want_to_read' ? (
-                    <button
-                      className={`text-[10px] rounded-full px-2.5 py-1 border transition-colors shrink-0 ${
-                        book.isNextUp
-                          ? 'bg-gold text-night border-gold font-medium'
-                          : 'border-hairline text-moon-dim hover:text-moon'
-                      }`}
-                      onClick={() => onUpdateBook(book.id, { isNextUp: !book.isNextUp })}
-                    >
-                      {book.isNextUp ? '★ Next up' : '☆ Mark next up'}
-                    </button>
-                  ) : (
-                    <ReadStatusBadge status={book.readStatus} />
+            activeTag && (
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-xs border border-gold/50 text-gold rounded-full px-2.5 py-1 hover:bg-card-hover transition-colors"
+                onClick={() => setActiveTag(null)}
+                aria-label={`Clear category filter: ${activeTag}`}
+              >
+                {activeTag}
+                <span aria-hidden="true">✕</span>
+              </button>
+            )
+          )}
+        </div>
+        {owned.length === 0 ? (
+          <p className="text-sm text-moon-dim">
+            {searching ? 'No books match your search.' : 'No books match this filter yet.'}
+          </p>
+        ) : (
+          <div>
+            {toShelfRows(owned, 3).map((row, i) => {
+              const padded = [...row, ...Array<Book | null>(3 - row.length).fill(null)]
+              return (
+                <PhotoShelf
+                  key={i}
+                  config={mainShelfForRow(i)}
+                  covers={padded.map((book) =>
+                    book ? (
+                      <button className="block w-full h-full" onClick={() => setSelectedId(book.id)}>
+                        <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
+                      </button>
+                    ) : null,
                   )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-moon">My Shelf ({owned.length})</h3>
-            <button
-              className="border border-hairline rounded-full px-3 py-1.5 text-xs text-moon hover:bg-card-hover transition-colors"
-              onClick={() => setShowForm(true)}
-            >
-              + Add Book
-            </button>
+                />
+              )
+            })}
           </div>
-          {owned.length === 0 ? (
-            <p className="text-sm text-moon-dim">No books match this filter yet.</p>
-          ) : (
-            <div>
-              {toShelfRows(owned, 3).map((row, i) => {
-                const padded = [...row, ...Array<Book | null>(3 - row.length).fill(null)]
-                return (
-                  <PhotoShelf
-                    key={i}
-                    config={MAIN_SHELF}
-                    covers={padded.map((book) =>
-                      book ? (
-                        <button className="block w-full h-full" onClick={() => setSelectedId(book.id)}>
-                          <BookCover title={book.title} coverUrl={book.coverUrl} seed={book.id} />
-                        </button>
-                      ) : null,
-                    )}
-                  />
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      <EnrichBooksPanel books={books} onApplyPatches={onBulkUpdateBooks} />
+        )}
+      </div>
     </div>
   )
 }

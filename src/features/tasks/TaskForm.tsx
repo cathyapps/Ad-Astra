@@ -37,9 +37,21 @@ interface Props {
   onSave: (patch: Partial<Task>) => void
   onCancel: () => void
   onDelete?: () => void
+  saveLabel?: string
+  cancelLabel?: string
 }
 
-export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave, onCancel, onDelete }: Props) {
+export function TaskForm({
+  initial,
+  isMoon,
+  siblingTasks,
+  tagSuggestions,
+  onSave,
+  onCancel,
+  onDelete,
+  saveLabel = 'Save',
+  cancelLabel = 'Cancel',
+}: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [isGoal, setIsGoal] = useState(initial?.isGoal ?? false)
@@ -257,10 +269,10 @@ export function TaskForm({ initial, isMoon, siblingTasks, tagSuggestions, onSave
           className="border border-hairline rounded-lg px-3 py-2.5 text-sm flex-1 text-moon hover:bg-card-hover transition-colors"
           onClick={onCancel}
         >
-          Cancel
+          {cancelLabel}
         </button>
         <button type="submit" className="rounded-lg px-3 py-2.5 text-sm flex-1 bg-gold text-night font-medium">
-          Save
+          {saveLabel}
         </button>
       </div>
       {onDelete && (

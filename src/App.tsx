@@ -20,6 +20,7 @@ export default function App() {
   const adAstra = useAdAstra()
   const auth = useAuthState()
   const [tab, setTab] = useState<Tab>('dashboard')
+  const [profileOpen, setProfileOpen] = useState(false)
 
   if (adAstra.loading) {
     return (
@@ -32,9 +33,53 @@ export default function App() {
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col">
       <header className="px-4 pt-5 pb-3 border-b border-hairline">
-        <div className="flex items-center gap-2 mb-3">
-          <img src="/icon-192.png" alt="" className="w-7 h-7 rounded-md" />
-          <h1 className="font-display text-lg text-moon">Ad Astra</h1>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <img src="/icon-192.png" alt="" className="w-7 h-7 rounded-md" />
+            <h1 className="font-display text-lg text-moon">Ad Astra</h1>
+          </div>
+          {auth.mode === 'supabase' && auth.email && (
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Profile"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                className="w-8 h-8 rounded-full border border-hairline flex items-center justify-center text-moon-dim hover:text-moon hover:bg-card-hover transition-colors"
+                onClick={() => setProfileOpen((v) => !v)}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                </svg>
+              </button>
+              {profileOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-2 z-30 w-56 max-w-[80vw] border border-hairline rounded-xl bg-card shadow-lg p-3 space-y-2"
+                  >
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-moon-dim">Signed in as</p>
+                      <p className="text-sm text-moon break-all">{auth.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full text-left text-sm border border-hairline rounded-lg px-3 py-2 text-moon hover:bg-card-hover transition-colors"
+                      onClick={() => {
+                        setProfileOpen(false)
+                        auth.signOut?.()
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
         <nav className="flex gap-1 text-sm overflow-x-auto -mx-4 px-4">
           {TABS.map((t) => (
@@ -54,14 +99,6 @@ export default function App() {
       {auth.mode === 'local' && (
         <div className="px-4 py-1.5 text-xs text-moon-dim bg-cosmic/10 border-b border-hairline">
           Local-only mode — set up Supabase to sync across devices.
-        </div>
-      )}
-      {auth.mode === 'supabase' && auth.email && (
-        <div className="px-4 py-1.5 text-xs text-moon-dim border-b border-hairline flex items-center justify-between">
-          <span>{auth.email}</span>
-          <button className="hover:text-moon" onClick={auth.signOut}>
-            Sign out
-          </button>
         </div>
       )}
 
@@ -112,7 +149,6 @@ export default function App() {
             metricsTimeframe={adAstra.settings.readingMetricsTimeframe}
             onCreateBook={adAstra.createBook}
             onUpdateBook={adAstra.updateBook}
-            onBulkUpdateBooks={adAstra.updateBooksBulk}
             onDeleteBook={adAstra.deleteBook}
             onCreateReadingLog={adAstra.createReadingLog}
             onChangeTimeframe={(t) => adAstra.updateSettings({ readingMetricsTimeframe: t })}

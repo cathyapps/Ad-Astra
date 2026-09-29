@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { ACTIVITY_TYPES } from '@/types'
 import type { ActivityType, DeviceContext, EffortContext, EnergyContext, LocationContext } from '@/types'
 import { BottomSheet } from '@/features/shared/BottomSheet'
 
-const ACTIVITY_TYPES: ActivityType[] = ['read', 'watch', 'listen', 'learn', 'create', 'play', 'relax']
 const LOCATIONS: LocationContext[] = ['anywhere', 'work', 'home', 'away_from_home']
 const DEVICES: DeviceContext[] = ['phone', 'computer', 'tv', 'physical']
 const EFFORTS: EffortContext[] = ['bed', 'seated', 'active']

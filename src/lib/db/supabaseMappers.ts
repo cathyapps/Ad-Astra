@@ -127,6 +127,7 @@ export function taskFromRow(row: Record<string, unknown>): Task {
           }
         : undefined,
     isGoal: (row.is_goal as boolean) ?? undefined,
+    habitCompletions: (row.habit_completions as string[]) ?? [],
   }
 }
 
@@ -155,6 +156,7 @@ export function taskToRow(input: Partial<Task>, userId: string): Record<string, 
     row.habit_frequency_count = input.habitFrequency?.count ?? null
   }
   if (input.isGoal !== undefined) row.is_goal = input.isGoal
+  if (input.habitCompletions !== undefined) row.habit_completions = input.habitCompletions
   return row
 }
 

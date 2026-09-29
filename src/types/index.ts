@@ -13,6 +13,7 @@ export type StarCategory =
   | 'creative'
   | 'home'
   | 'business'
+  | 'work'
   | 'reading'
   | 'health'
   | 'relationship'
@@ -87,7 +88,27 @@ export interface HabitFrequency {
 }
 
 // Dashboard "what are you in the mood for" context (§8)
-export type ActivityType = 'read' | 'watch' | 'listen' | 'learn' | 'create' | 'play' | 'relax'
+export type ActivityType =
+  | 'read'
+  | 'watch'
+  | 'listen'
+  | 'learn'
+  | 'create'
+  | 'play'
+  | 'relax'
+  | 'exercise'
+  | 'work'
+export const ACTIVITY_TYPES: ActivityType[] = [
+  'read',
+  'watch',
+  'listen',
+  'learn',
+  'create',
+  'play',
+  'relax',
+  'exercise',
+  'work',
+]
 export type LocationContext = 'anywhere' | 'work' | 'home' | 'away_from_home'
 export type DeviceContext = 'phone' | 'computer' | 'tv' | 'physical'
 export type EffortContext = 'bed' | 'seated' | 'active'
@@ -129,6 +150,9 @@ export interface Task {
   tags: string[]
   taskType?: TaskType
   habitFrequency?: HabitFrequency
+  // Habit check-offs as local dates (YYYY-MM-DD), one entry per time it was
+  // checked off (duplicates allowed). See src/lib/habits.ts.
+  habitCompletions?: string[]
 
   // A top-level goal (e.g. "exercise more") isn't itself a completable
   // action with a duration — its sub-tasks are (e.g. "30 min barre

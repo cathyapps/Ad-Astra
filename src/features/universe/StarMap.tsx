@@ -1,5 +1,6 @@
 import type { Constellation, Star } from '@/types'
 import { placeStars } from '@/lib/starPlacement'
+import { constellationColor } from '@/lib/constellationColors'
 
 interface Props {
   stars: Star[]
@@ -38,6 +39,7 @@ export function StarMap({ stars, constellations, onSelect, selectedId }: Props) 
         const members = c.starIds.map((id) => byId.get(id)).filter((p): p is (typeof points)[number] => !!p)
         if (members.length === 0) return null
         const label = c.shortName?.trim()
+        const lineColor = constellationColor(constellations, c.id)
         // Label anchored above the topmost member of the cluster, offset
         // further up so it clears both the stars and their connecting
         // lines rather than sitting on top of either.
@@ -56,9 +58,9 @@ export function StarMap({ stars, constellations, onSelect, selectedId }: Props) 
                   y1={prev.y * size}
                   x2={p.x * size}
                   y2={p.y * size}
-                  stroke={BLUE}
-                  strokeOpacity={0.28}
-                  strokeWidth={0.75}
+                  stroke={lineColor}
+                  strokeOpacity={0.6}
+                  strokeWidth={1}
                 />
               )
             })}
@@ -73,7 +75,7 @@ export function StarMap({ stars, constellations, onSelect, selectedId }: Props) 
                   fill="#070E2A"
                   fillOpacity={0.75}
                 />
-                <text x={avgX} y={labelY} textAnchor="middle" fontSize={8.5} fill="#8891A8" letterSpacing={0.3}>
+                <text x={avgX} y={labelY} textAnchor="middle" fontSize={8.5} fill={lineColor} fillOpacity={0.9} letterSpacing={0.3}>
                   {label}
                 </text>
               </g>

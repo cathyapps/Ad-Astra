@@ -8,7 +8,6 @@ interface Props {
   starId: string
   tasks: Task[]
   parentId?: string
-  onCreate: (input: Partial<Task> & { starId: string; name: string }) => void
   onUpdate: (id: string, patch: Partial<Task>) => void
   onDelete?: (id: string) => void
   depth?: number
@@ -27,9 +26,7 @@ function frequencyLabel(t: Task): string | undefined {
   return `${t.habitFrequency.count ?? 1}x/month`
 }
 
-export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete, depth = 0 }: Props) {
-  const [newName, setNewName] = useState('')
-  const [newMinutes, setNewMinutes] = useState('')
+export function TaskList({ starId, tasks, parentId, onUpdate, onDelete, depth = 0 }: Props) {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
 
   const children = tasks
@@ -100,7 +97,6 @@ export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete
               starId={starId}
               tasks={tasks}
               parentId={t.id}
-              onCreate={onCreate}
               onUpdate={onUpdate}
               onDelete={onDelete}
               depth={depth + 1}
@@ -108,42 +104,6 @@ export function TaskList({ starId, tasks, parentId, onCreate, onUpdate, onDelete
           </div>
         )
       })}
-
-      <form
-        className="flex gap-2 pt-1 min-w-0"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (!newName.trim()) return
-          onCreate({
-            starId,
-            parentTaskId: parentId,
-            name: newName.trim(),
-            estimatedMinutes: newMinutes ? Number(newMinutes) : undefined,
-          })
-          setNewName('')
-          setNewMinutes('')
-        }}
-      >
-        <input
-          className="flex-1 min-w-0 border border-hairline bg-night rounded-lg px-2.5 py-1.5 text-sm text-moon placeholder:text-moon-dim/60"
-          placeholder={depth === 0 ? 'Add a planet…' : 'Add a moon…'}
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-        />
-        <input
-          className="w-14 shrink-0 border border-hairline bg-night rounded-lg px-2 py-1.5 text-sm text-moon"
-          placeholder="min"
-          inputMode="numeric"
-          value={newMinutes}
-          onChange={(e) => setNewMinutes(e.target.value)}
-        />
-        <button
-          type="submit"
-          className="border border-hairline rounded-lg px-3 py-1.5 text-sm text-moon-dim hover:text-moon hover:bg-card-hover transition-colors shrink-0"
-        >
-          Add
-        </button>
-      </form>
 
       {editingTask && (
         <BottomSheet title={depth === 0 ? 'Edit planet' : 'Edit moon'} onClose={() => setEditingTask(null)}>

@@ -19,7 +19,7 @@ export const BOOK_READ_STATUS_ORDER: BookReadStatus[] = ['want_to_read', 'readin
 // category (books to read are tracked entirely here in the Library —
 // see the Bucket List redesign notes). Kept as a starter suggestion set
 // for the Library's own tag picker.
-export const BOOK_TAG_SUGGESTIONS = ['fiction', 'nonfiction', 'fantasy', 'sci-fi', 'memoir', 'mystery', 'classic']
+export const BOOK_TAG_SUGGESTIONS = ['fiction', 'nonfiction', 'fantasy', 'sci-fi', 'memoir', 'mystery', 'classic', 'OUABC']
 
 // Auto-generated length-bucket "tag" shown as its own spine on the Library
 // shelf, derived from totalPages — not stored, just computed on the fly

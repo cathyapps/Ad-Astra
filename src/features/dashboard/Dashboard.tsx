@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ACTIVITY_TYPES } from '@/types'
 import type {
   ActivityType,
   Constellation,
@@ -14,15 +15,16 @@ import type {
 } from '@/types'
 import { getRecommendations, getSmallWin } from '@/lib/recommendationEngine'
 import { getCurrentOrbitStars } from '@/lib/currentOrbit'
+import { CurrentHabits } from './CurrentHabits'
 
-const ACTIVITY_TYPES: ActivityType[] = ['read', 'watch', 'listen', 'learn', 'create', 'play', 'relax']
 const LOCATIONS: LocationContext[] = ['anywhere', 'work', 'home', 'away_from_home']
 const DEVICES: DeviceContext[] = ['phone', 'computer', 'tv', 'physical']
 const EFFORTS: EffortContext[] = ['bed', 'seated', 'active']
 const ENERGIES: EnergyContext[] = ['very_low', 'low', 'normal', 'high']
 const TIME_BUDGETS: TimeBudget[] = [5, 15, 30, 60, 999]
 
-const selectClass = 'mt-1 w-full border border-hairline bg-night rounded-lg px-2 py-1.5 text-sm text-moon'
+const selectClass =
+  'w-full min-w-0 border border-hairline bg-night rounded-lg px-1.5 py-1 text-xs text-moon truncate'
 
 interface Props {
   stars: Star[]
@@ -43,7 +45,7 @@ function Chip({
   return (
     <button
       onClick={onClick}
-      className={`text-xs border rounded-full px-3 py-1.5 transition-colors ${
+      className={`text-xs border rounded-full px-2.5 py-1 transition-colors ${
         active ? 'bg-cosmic text-night border-cosmic font-medium' : 'border-hairline text-moon-dim hover:text-moon'
       }`}
     >
@@ -86,7 +88,7 @@ export function Dashboard({ stars, tasks, constellations, onUpdateTask }: Props)
         </div>
       )}
 
-      <div className="border border-hairline rounded-xl p-4 space-y-3 bg-card">
+      <div className="border border-hairline rounded-xl p-3 space-y-2 bg-card">
         <h3 className="text-sm font-medium text-moon">What are you in the mood for?</h3>
         <div className="flex flex-wrap gap-1.5">
           {ACTIVITY_TYPES.map((a) => (
@@ -96,99 +98,91 @@ export function Dashboard({ stars, tasks, constellations, onUpdateTask }: Props)
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-sm text-moon-dim">
-          <label>
-            Time
-            <select
-              className={selectClass}
-              value={context.timeBudget ?? ''}
-              onChange={(e) =>
-                setContext((c) => ({
-                  ...c,
-                  timeBudget: e.target.value ? (Number(e.target.value) as TimeBudget) : undefined,
-                }))
-              }
-            >
-              <option value="">Any</option>
-              {TIME_BUDGETS.map((t) => (
-                <option key={t} value={t}>
-                  {t === 999 ? '1+ hour' : `${t} min`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Energy
-            <select
-              className={selectClass}
-              value={context.energy ?? ''}
-              onChange={(e) =>
-                setContext((c) => ({ ...c, energy: (e.target.value || undefined) as EnergyContext }))
-              }
-            >
-              <option value="">Any</option>
-              {ENERGIES.map((e) => (
-                <option key={e} value={e}>
-                  {e.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Location
-            <select
-              className={selectClass}
-              value={context.location ?? ''}
-              onChange={(e) =>
-                setContext((c) => ({ ...c, location: (e.target.value || undefined) as LocationContext }))
-              }
-            >
-              <option value="">Any</option>
-              {LOCATIONS.map((l) => (
-                <option key={l} value={l}>
-                  {l.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Device
-            <select
-              className={selectClass}
-              value={context.device ?? ''}
-              onChange={(e) =>
-                setContext((c) => ({ ...c, device: (e.target.value || undefined) as DeviceContext }))
-              }
-            >
-              <option value="">Any</option>
-              {DEVICES.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="col-span-2">
-            Physical effort
-            <select
-              className={selectClass}
-              value={context.effort ?? ''}
-              onChange={(e) =>
-                setContext((c) => ({ ...c, effort: (e.target.value || undefined) as EffortContext }))
-              }
-            >
-              <option value="">Any</option>
-              {EFFORTS.map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
-            </select>
-          </label>
+        {/* Five compact dropdowns in one tight grid. The field name lives
+            inside the option text ("Time: any") so no labels are needed. */}
+        <div className="grid grid-cols-3 gap-1.5">
+          <select
+            aria-label="Time"
+            className={selectClass}
+            value={context.timeBudget ?? ''}
+            onChange={(e) =>
+              setContext((c) => ({
+                ...c,
+                timeBudget: e.target.value ? (Number(e.target.value) as TimeBudget) : undefined,
+              }))
+            }
+          >
+            <option value="">Time: any</option>
+            {TIME_BUDGETS.map((t) => (
+              <option key={t} value={t}>
+                {t === 999 ? 'Time: 1+ hour' : `Time: ${t} min`}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Energy"
+            className={selectClass}
+            value={context.energy ?? ''}
+            onChange={(e) =>
+              setContext((c) => ({ ...c, energy: (e.target.value || undefined) as EnergyContext }))
+            }
+          >
+            <option value="">Energy: any</option>
+            {ENERGIES.map((e) => (
+              <option key={e} value={e}>
+                Energy: {e.replace('_', ' ')}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Location"
+            className={selectClass}
+            value={context.location ?? ''}
+            onChange={(e) =>
+              setContext((c) => ({ ...c, location: (e.target.value || undefined) as LocationContext }))
+            }
+          >
+            <option value="">Where: any</option>
+            {LOCATIONS.map((l) => (
+              <option key={l} value={l}>
+                Where: {l === 'away_from_home' ? 'away' : l}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Device"
+            className={selectClass}
+            value={context.device ?? ''}
+            onChange={(e) =>
+              setContext((c) => ({ ...c, device: (e.target.value || undefined) as DeviceContext }))
+            }
+          >
+            <option value="">Device: any</option>
+            {DEVICES.map((d) => (
+              <option key={d} value={d}>
+                Device: {d}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Physical effort"
+            className={`${selectClass} col-span-2`}
+            value={context.effort ?? ''}
+            onChange={(e) =>
+              setContext((c) => ({ ...c, effort: (e.target.value || undefined) as EffortContext }))
+            }
+          >
+            <option value="">Effort: any</option>
+            {EFFORTS.map((e) => (
+              <option key={e} value={e}>
+                Effort: {e}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button
-          className="w-full rounded-lg px-3 py-2.5 text-sm bg-gold text-night font-medium hover:bg-gold-soft transition-colors"
+          className="w-full rounded-lg px-3 py-2 text-sm bg-gold text-night font-medium hover:bg-gold-soft transition-colors"
           onClick={() => setRecommendations(getRecommendations(context, stars, tasks, constellations))}
         >
           Show me something
@@ -251,6 +245,8 @@ export function Dashboard({ stars, tasks, constellations, onUpdateTask }: Props)
           )}
         </div>
       )}
+
+      <CurrentHabits stars={stars} tasks={tasks} onUpdateTask={onUpdateTask} />
 
       <div>
         <h3 className="text-xs uppercase tracking-wide text-moon-dim mb-2">
