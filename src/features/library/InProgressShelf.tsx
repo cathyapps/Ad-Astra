@@ -8,6 +8,8 @@ import { ShelfProgress } from './ShelfProgress'
 import { ProgressLogSheet } from './ProgressLogSheet'
 import { BookDetail } from './BookDetail'
 import { DetailModal } from '@/features/shared/DetailModal'
+import { ReadingTimerBanner } from './ReadingTimerBanner'
+import { useReadingTimer } from './ReadingTimerContext'
 
 interface Props {
   books: Book[]
@@ -15,6 +17,12 @@ interface Props {
   onUpdateBook: (id: string, patch: Partial<Book>) => void
   onDeleteBook: (id: string) => void
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
+  /** Only render this many shelf rows (the Dashboard shows just the top one). */
+  maxRows?: number
+  /** Render nothing (instead of the "nothing in progress" note) when empty. */
+  hideWhenEmpty?: boolean
+  /** Wrap in the warm Library look — for use outside the Library tab. */
+  realm?: boolean
 }
 
 // Covers are shrunk to leave a band above them (inside the shelf photo
@@ -23,7 +31,17 @@ interface Props {
 // title/progress/actions block underneath each row.
 const COVER_SCALE = 0.76
 
-export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook, onCreateReadingLog }: Props) {
+export function InProgressShelf({
+  books,
+  readingLogs,
+  onUpdateBook,
+  onDeleteBook,
+  onCreateReadingLog,
+  maxRows,
+  hideWhenEmpty,
+  realm,
+}: Props) {
+  const { timer } = useReadingTimer()
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const [loggingId, setLoggingId] = useState<string | undefined>()
 
@@ -39,10 +57,14 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
 
   const selected = books.find((b) => b.id === selectedId)
   const logging = books.find((b) => b.id === loggingId)
-  const rows = toShelfRows(reading, 3)
+  const rows = toShelfRows(reading, 3).slice(0, maxRows)
+
+  if (hideWhenEmpty && reading.length === 0 && !timer) return null
 
   return (
-    <div className="space-y-5">
+    <div className={realm ? 'library-realm space-y-5' : 'space-y-5'}>
+      <ReadingTimerBanner books={books} />
+
       {selected && (
         <DetailModal onClose={() => setSelectedId(undefined)}>
           <BookDetail
@@ -69,7 +91,7 @@ export function InProgressShelf({ books, readingLogs, onUpdateBook, onDeleteBook
       )}
 
       {reading.length === 0 ? (
-        <p className="text-sm text-moon-dim">Nothing in progress — open a book from the Library to start it.</p>
+        hideWhenEmpty ? null : <p className="text-sm text-moon-dim">Nothing in progress — open a book from the Library to start it.</p>
       ) : (
         <div>
           {rows.map((row, i) => {

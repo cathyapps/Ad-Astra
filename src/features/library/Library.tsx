@@ -4,13 +4,15 @@ import type { ChartConfig, ChartType, MetricKey, MetricsTimeframe } from '@/type
 import { InProgressShelf } from './InProgressShelf'
 import { LibraryShelf } from './LibraryShelf'
 import { Metrics } from './Metrics'
+import { ReadingCalendar } from './ReadingCalendar'
 import type { ReadingGoals } from './ReadingGoalCard'
 
-type SubTab = 'inProgress' | 'library' | 'metrics'
+type SubTab = 'inProgress' | 'library' | 'calendar' | 'metrics'
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'inProgress', label: 'In Progress' },
   { id: 'library', label: 'Library' },
+  { id: 'calendar', label: 'Calendar' },
   { id: 'metrics', label: 'Metrics' },
 ]
 
@@ -85,6 +87,16 @@ export function Library({
           books={books}
           readingLogs={readingLogs}
           onCreateBook={onCreateBook}
+          onUpdateBook={onUpdateBook}
+          onDeleteBook={onDeleteBook}
+          onCreateReadingLog={onCreateReadingLog}
+        />
+      )}
+
+      {subTab === 'calendar' && (
+        <ReadingCalendar
+          books={books}
+          readingLogs={readingLogs}
           onUpdateBook={onUpdateBook}
           onDeleteBook={onDeleteBook}
           onCreateReadingLog={onCreateReadingLog}

@@ -8,6 +8,34 @@ export interface CategorySpine {
 
 const hasTag = (book: Book, tag: string) => book.tags.some((t) => t.toLowerCase() === tag)
 const genreIs = (genre: string) => (book: Book) => book.genre === genre
+
+/** Every genre that has its own spine on the category shelves, in the
+ *  order the spines appear on screen (top shelf to bottom, left to
+ *  right). This is the single source of truth for the Genre dropdown in
+ *  the book form, so the two can never drift apart. */
+export const SHELF_GENRES = [
+  'Classic',
+  'Literary Fiction',
+  'Historical Fiction',
+  'Mystery',
+  'Thriller',
+  'Science Fiction',
+  'Fantasy',
+  'Humor',
+  'Romance',
+  'Cliterature',
+  'History',
+  'Memoir',
+  'Biography',
+  'Self-Help',
+  'YA Fiction',
+  "Children's",
+] as const
+
+const genreSpine = (genre: (typeof SHELF_GENRES)[number]): CategorySpine => ({
+  label: genre,
+  matches: genreIs(genre),
+})
 const moodTag = (tag: string) => (book: Book) => hasTag(book, tag)
 
 const NONFICTION_GENRES = new Set(['History', 'Memoir', 'Biography', 'Self-Help', 'Nonfiction'])
@@ -39,24 +67,24 @@ export const CATEGORY_SHELVES: CategorySpine[][] = [
     { label: 'OUABC', matches: moodTag('ouabc') },
   ],
   [
-    { label: 'Classic', matches: genreIs('Classic') },
-    { label: 'Literary Fiction', matches: genreIs('Literary Fiction') },
-    { label: 'Historical Fiction', matches: genreIs('Historical Fiction') },
-    { label: 'Mystery', matches: genreIs('Mystery') },
-    { label: 'Thriller', matches: genreIs('Thriller') },
-    { label: 'Science Fiction', matches: genreIs('Science Fiction') },
-    { label: 'Fantasy', matches: genreIs('Fantasy') },
-    { label: 'Humor', matches: genreIs('Humor') },
-    { label: 'Romance', matches: genreIs('Romance') },
-    { label: 'Cliterature', matches: genreIs('Cliterature') },
+    genreSpine('Classic'),
+    genreSpine('Literary Fiction'),
+    genreSpine('Historical Fiction'),
+    genreSpine('Mystery'),
+    genreSpine('Thriller'),
+    genreSpine('Science Fiction'),
+    genreSpine('Fantasy'),
+    genreSpine('Humor'),
+    genreSpine('Romance'),
+    genreSpine('Cliterature'),
   ],
   [
-    { label: 'History', matches: genreIs('History') },
-    { label: 'Memoir', matches: genreIs('Memoir') },
-    { label: 'Biography', matches: genreIs('Biography') },
-    { label: 'Self-Help', matches: genreIs('Self-Help') },
-    { label: 'YA Fiction', matches: genreIs('YA Fiction') },
-    { label: "Children's", matches: genreIs("Children's") },
+    genreSpine('History'),
+    genreSpine('Memoir'),
+    genreSpine('Biography'),
+    genreSpine('Self-Help'),
+    genreSpine('YA Fiction'),
+    genreSpine("Children's"),
     { label: 'informative', matches: moodTag('informative') },
     { label: 'challenging', matches: moodTag('challenging') },
     { label: 'funny', matches: moodTag('funny') },

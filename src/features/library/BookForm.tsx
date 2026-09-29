@@ -2,6 +2,9 @@ import { useState } from 'react'
 import type { Book, BookFormat, BookOwnership } from '@/types/library'
 import { BOOK_FORMAT_OPTIONS, BOOK_OWNERSHIP_OPTIONS } from '@/types/library'
 import { BookSearch } from './BookSearch'
+import { SHELF_GENRES } from '@/lib/categorySpines'
+
+const SHELF_GENRE_LIST: readonly string[] = SHELF_GENRES
 
 const inputClass =
   'mt-1 w-full border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60'
@@ -80,7 +83,9 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
                 onPick={(draft) => {
                   setTitle(draft.title)
                   if (draft.author) setAuthor(draft.author)
-                  if (draft.genre) setGenre(draft.genre)
+                  // Open Library's subjects are free text; only take one that is
+                  // actually a genre on the shelves.
+                  if (draft.genre && SHELF_GENRE_LIST.includes(draft.genre)) setGenre(draft.genre)
                   if (draft.totalPages != null) setTotalPages(String(draft.totalPages))
                   if (draft.coverUrl) setCoverUrlInput(draft.coverUrl)
                   setMatched({
@@ -136,7 +141,17 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
       </div>
       <label className={labelClass}>
         Genre
-        <input className={inputClass} value={genre} onChange={(e) => setGenre(e.target.value)} />
+        <select className={inputClass} value={genre} onChange={(e) => setGenre(e.target.value)}>
+          <option value="">— None —</option>
+          {/* A genre saved before this became a dropdown (e.g. "Fiction")
+              stays selectable so opening and saving a book doesn't wipe it. */}
+          {genre && !SHELF_GENRE_LIST.includes(genre) && <option value={genre}>{genre} (not on shelves)</option>}
+          {SHELF_GENRES.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
       </label>
       <div className="flex gap-3">
         <label className={`${labelClass} flex-1`}>

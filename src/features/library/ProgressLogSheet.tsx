@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
 import { BottomSheet } from '@/features/shared/BottomSheet'
+import { useReadingTimer } from './ReadingTimerContext'
 
 const inputClass =
   'w-full border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60'
@@ -11,6 +12,8 @@ interface Props {
   onCreateLog: (input: Partial<ReadingLog>) => void
   onUpdateBook: (patch: Partial<Book>) => void
   onClose: () => void
+  /** Pre-fills "minutes spent reading" (used when a reading timer stops). */
+  initialMinutes?: number
 }
 
 /** Log a reading session for one book. Print books log a page number;
@@ -18,17 +21,37 @@ interface Props {
  *  rule. If a percent-based book has no totalPages yet, this also asks
  *  for a one-time estimate so progress can be shown in equivalent pages
  *  everywhere else in the app. */
-export function ProgressLogSheet({ book, onCreateLog, onUpdateBook, onClose }: Props) {
+export function ProgressLogSheet({ book, onCreateLog, onUpdateBook, onClose, initialMinutes }: Props) {
+  const { timer, start } = useReadingTimer()
   const isPercentBased = book.format === 'kindle' || book.format === 'audio'
   const [pageInput, setPageInput] = useState('')
   const [percentInput, setPercentInput] = useState('')
   const [estimatedPagesInput, setEstimatedPagesInput] = useState('')
-  const [minutesInput, setMinutesInput] = useState('')
+  const [minutesInput, setMinutesInput] = useState(initialMinutes != null ? String(initialMinutes) : '')
 
   const needsEstimate = isPercentBased && book.totalPages == null
+  const canTime = book.readStatus === 'reading' || book.readStatus === 'paused'
+  const timerRunningHere = timer?.bookId === book.id
 
   return (
     <BottomSheet title={`Log progress — ${book.title}`} onClose={onClose}>
+      {canTime && initialMinutes == null && (
+        <button
+          type="button"
+          disabled={timer != null}
+          className="w-full mb-3 rounded-lg px-3 py-2.5 text-sm border border-gold/50 text-gold hover:bg-gold/10 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+          onClick={() => {
+            start(book.id)
+            onClose()
+          }}
+        >
+          {timerRunningHere
+            ? '⏱ Timer running for this book'
+            : timer
+              ? '⏱ A reading timer is already running'
+              : '⏱ Start reading'}
+        </button>
+      )}
       <form
         className="space-y-3"
         onSubmit={(e) => {

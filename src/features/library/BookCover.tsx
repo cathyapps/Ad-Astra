@@ -11,7 +11,7 @@ interface Props {
   coverUrl?: string
   /** Used to pick a stable fallback tone when there's no cover image. */
   seed?: string
-  size?: 'sm' | 'md'
+  size?: 'xs' | 'sm' | 'md'
 }
 
 function toneFor(seed: string): string {
@@ -30,7 +30,7 @@ function toneFor(seed: string): string {
  *  rather than showing a broken-image icon or a blank stretched pixel. */
 export function BookCover({ title, coverUrl, seed, size = 'md' }: Props) {
   const [failed, setFailed] = useState(false)
-  const dims = size === 'sm' ? 'w-14 h-20' : 'w-full aspect-[2/3]'
+  const dims = size === 'xs' ? 'w-9 h-[54px]' : size === 'sm' ? 'w-14 h-20' : 'w-full aspect-[2/3]'
 
   if (coverUrl && !failed) {
     return (
@@ -48,11 +48,15 @@ export function BookCover({ title, coverUrl, seed, size = 'md' }: Props) {
 
   return (
     <div
-      className={`${dims} rounded shadow-[0_2px_6px_rgba(0,0,0,0.35)] border shrink-0 flex items-center justify-center p-1.5 ${toneFor(
+      className={`${dims} rounded shadow-[0_2px_6px_rgba(0,0,0,0.35)] border shrink-0 flex items-center justify-center ${size === 'xs' ? 'p-0.5' : 'p-1.5'} ${toneFor(
         seed ?? title,
       )}`}
     >
-      <span className="text-[10px] leading-tight text-moon text-center line-clamp-5 font-medium">{title}</span>
+      <span
+        className={`${size === 'xs' ? 'text-[6px] line-clamp-6' : 'text-[10px] line-clamp-5'} leading-tight text-moon text-center font-medium`}
+      >
+        {title}
+      </span>
     </div>
   )
 }

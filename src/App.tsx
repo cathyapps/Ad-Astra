@@ -6,6 +6,8 @@ import { BucketList } from '@/features/bucketlist/BucketList'
 import { Library } from '@/features/library/Library'
 import { CapacityWarningModal } from '@/features/stars/CapacityWarningModal'
 import { useAuthState } from '@/features/auth/AuthContext'
+import { ReadingTimerProvider } from '@/features/library/ReadingTimerProvider'
+import { StoppedSessionSheet } from '@/features/library/StoppedSessionSheet'
 
 type Tab = 'dashboard' | 'universe' | 'bucketlist' | 'library'
 
@@ -31,6 +33,7 @@ export default function App() {
   }
 
   return (
+    <ReadingTimerProvider>
     <div className="max-w-md mx-auto min-h-screen flex flex-col">
       <header className="px-4 pt-5 pb-3 border-b border-hairline">
         <div className="flex items-center justify-between mb-3">
@@ -109,6 +112,11 @@ export default function App() {
             tasks={adAstra.tasks}
             constellations={adAstra.constellations}
             onUpdateTask={adAstra.updateTask}
+            books={adAstra.books}
+            readingLogs={adAstra.readingLogs}
+            onUpdateBook={adAstra.updateBook}
+            onDeleteBook={adAstra.deleteBook}
+            onCreateReadingLog={adAstra.createReadingLog}
           />
         )}
         {tab === 'universe' && (
@@ -162,6 +170,12 @@ export default function App() {
         )}
       </main>
 
+      <StoppedSessionSheet
+        books={adAstra.books}
+        onCreateReadingLog={adAstra.createReadingLog}
+        onUpdateBook={adAstra.updateBook}
+      />
+
       {adAstra.capacityPrompt && (
         <CapacityWarningModal
           message={adAstra.capacityPrompt.message}
@@ -172,5 +186,6 @@ export default function App() {
         />
       )}
     </div>
+    </ReadingTimerProvider>
   )
 }

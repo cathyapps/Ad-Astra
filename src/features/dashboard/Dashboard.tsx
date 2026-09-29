@@ -16,6 +16,8 @@ import type {
 import { getRecommendations, getSmallWin } from '@/lib/recommendationEngine'
 import { getCurrentOrbitStars } from '@/lib/currentOrbit'
 import { CurrentHabits } from './CurrentHabits'
+import type { Book, ReadingLog } from '@/types/library'
+import { InProgressShelf } from '@/features/library/InProgressShelf'
 
 const LOCATIONS: LocationContext[] = ['anywhere', 'work', 'home', 'away_from_home']
 const DEVICES: DeviceContext[] = ['phone', 'computer', 'tv', 'physical']
@@ -31,6 +33,11 @@ interface Props {
   tasks: Task[]
   constellations: Constellation[]
   onUpdateTask: (id: string, patch: Partial<Task>) => void
+  books: Book[]
+  readingLogs: ReadingLog[]
+  onUpdateBook: (id: string, patch: Partial<Book>) => void
+  onDeleteBook: (id: string) => void
+  onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
 }
 
 function Chip({
@@ -54,7 +61,17 @@ function Chip({
   )
 }
 
-export function Dashboard({ stars, tasks, constellations, onUpdateTask }: Props) {
+export function Dashboard({
+  stars,
+  tasks,
+  constellations,
+  onUpdateTask,
+  books,
+  readingLogs,
+  onUpdateBook,
+  onDeleteBook,
+  onCreateReadingLog,
+}: Props) {
   const [context, setContext] = useState<DashboardContext>({ activityTypes: [] })
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null)
   const [smallWin, setSmallWin] = useState<Recommendation | null | undefined>(undefined)
@@ -82,6 +99,19 @@ export function Dashboard({ stars, tasks, constellations, onUpdateTask }: Props)
 
   return (
     <div className="space-y-5">
+      {/* Top shelf of the Library's In Progress page (plus the reading
+          timer banner when one is running). Same quick-log behaviour. */}
+      <InProgressShelf
+        books={books}
+        readingLogs={readingLogs}
+        onUpdateBook={onUpdateBook}
+        onDeleteBook={onDeleteBook}
+        onCreateReadingLog={onCreateReadingLog}
+        maxRows={1}
+        hideWhenEmpty
+        realm
+      />
+
       {celebrating && (
         <div className="border border-gold/30 rounded-xl px-3 py-2.5 text-sm bg-gold/10 text-gold-soft">
           ✦ Nice — "{celebrating}" done.
