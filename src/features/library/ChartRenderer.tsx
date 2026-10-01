@@ -2,6 +2,7 @@ import type { ChartType, MetricKey } from '@/types/charts'
 import { METRIC_LABELS } from '@/types/charts'
 import type { ChartPoint } from '@/lib/chartData'
 import { MOOD_MAX, MOOD_MIN } from '@/lib/moods'
+import { axisLabels } from '@/lib/axisLabels'
 
 interface Props {
   type: ChartType
@@ -61,7 +62,10 @@ export function ChartRenderer({ type, points, xAxis, yAxis }: Props) {
   const rotateLabels = (xAxis != null && (DATE_AXES.includes(xAxis) || xAxis === 'mood')) || points.length > 6
   // Room for the tick labels scales with the longest rotated label, so
   // short ones (e.g. months) don't leave a big gap above the axis title.
-  const longestLabel = Math.max(...points.map((p) => Math.min(p.label.length, 14)))
+  // At most 15 x labels: crowded axes label every Nth point or switch to
+  // coarser units (see lib/axisLabels.ts). The points themselves are unchanged.
+  const xLabels = axisLabels(points, xAxis != null && DATE_AXES.includes(xAxis))
+  const longestLabel = Math.max(1, ...xLabels.map((l) => Math.min((l ?? '').length, 14)))
   const labelRoom = rotateLabels ? Math.min(56, 12 + longestLabel * 4.4) : 22
   const padBottom = labelRoom + 18 // tick labels + axis title
 
@@ -87,8 +91,8 @@ export function ChartRenderer({ type, points, xAxis, yAxis }: Props) {
   const trim = (label: string) =>
     rotateLabels ? (label.length > 14 ? label.slice(0, 13) + '…' : label) : label.length > 8 ? label.slice(0, 8) : label
 
-  const renderLabel = (x: number, label: string) =>
-    rotateLabels ? (
+  const renderLabel = (x: number, label: string | null) =>
+    label == null ? null : rotateLabels ? (
       <text
         x={x}
         y={plotB + 8}
@@ -142,7 +146,7 @@ export function ChartRenderer({ type, points, xAxis, yAxis }: Props) {
                 fillOpacity={0.85}
                 rx={2}
               />
-              {renderLabel(bandX(i), p.label)}
+              {renderLabel(bandX(i), xLabels[i])}
             </g>
           )
         })}
@@ -157,7 +161,7 @@ export function ChartRenderer({ type, points, xAxis, yAxis }: Props) {
                 <line x1={lineX(i - 1)} y1={yPos(points[i - 1].value)} x2={x} y2={y} stroke={BLUE} strokeWidth={1.5} />
               )}
               <circle cx={x} cy={y} r={3} fill={type === 'scatter' ? GOLD : BLUE} />
-              {renderLabel(x, p.label)}
+              {renderLabel(x, xLabels[i])}
             </g>
           )
         })}

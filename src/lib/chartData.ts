@@ -6,6 +6,10 @@ import { averageMood, moodsOf } from './moods'
 export interface ChartPoint {
   label: string
   value: number
+  /** A representative calendar date (YYYY-MM-DD) for points on a date axis.
+   *  Lets the chart renderer thin out / regroup axis labels without
+   *  changing the points themselves. */
+  date?: string
 }
 
 const TIME_AXES: MetricKey[] = ['date_day', 'date_week', 'date_month', 'day_of_week']
@@ -75,6 +79,20 @@ function displayLabel(xAxis: MetricKey, key: string): string {
   return key
 }
 
+/** Representative date for a time bucket (used only for axis labelling). */
+function bucketDate(xAxis: MetricKey, key: string, logs: DerivedLog[], completed: Book[]): string | undefined {
+  if (xAxis === 'date_day') return key
+  if (xAxis === 'date_month') return `${key}-01`
+  if (xAxis === 'date_week') {
+    const dates = [
+      ...logs.map((d) => dayKey(d.log.date)),
+      ...completed.flatMap((b) => (b.completedAt ? [dayKey(b.completedAt)] : [])),
+    ].sort()
+    return dates[0]
+  }
+  return undefined
+}
+
 function timeKeyFor(xAxis: MetricKey, dateStr: string): string {
   switch (xAxis) {
     case 'date_day':
@@ -103,14 +121,14 @@ function categoryKeyFor(xAxis: MetricKey, book: Book): string | undefined {
   }
 }
 
-function aggregateY(yAxis: MetricKey, logs: DerivedLog[], books: Book[]): number {
+function aggregateY(yAxis: MetricKey, logs: DerivedLog[], books: Book[], start: Date, end: Date): number {
   switch (yAxis) {
     case 'pages_read':
       return logs.reduce((sum, d) => sum + (d.pagesRead ?? 0), 0)
     case 'minutes_spent':
       return logs.reduce((sum, d) => sum + (d.log.minutesSpentReading ?? 0), 0)
     case 'books_completed':
-      return books.filter((b) => b.readStatus === 'read').length
+      return books.filter((b) => b.readStatus === 'read' && b.completedAt && inRange(b.completedAt, start, end)).length
     case 'reading_speed': {
       const withSpeed = logs.filter((d) => d.speedPagesPerHour != null)
       if (withSpeed.length === 0) return 0
@@ -123,6 +141,14 @@ function aggregateY(yAxis: MetricKey, logs: DerivedLog[], books: Book[]): number
     default:
       return 0
   }
+}
+
+/** Chronological order for bucket keys. Day/month keys sort correctly as
+ *  text; week keys ("2024-W10") don't (W10 would land before W2), so those
+ *  sort by their bucket's date instead. */
+function sortedKeys(xAxis: MetricKey, keys: string[], dateOf: (key: string) => string | undefined): string[] {
+  if (xAxis !== 'date_week') return keys.sort()
+  return keys.sort((a, b) => (dateOf(a) ?? '').localeCompare(dateOf(b) ?? ''))
 }
 
 /** Turns a saved ChartConfig into plottable {label, value} points, using
@@ -156,27 +182,52 @@ export function computeChartData(
       const keys =
         config.xAxis === 'day_of_week'
           ? DAY_NAMES
-          : Array.from(new Set([...buckets.keys(), ...completedBuckets.keys()])).sort()
+          : sortedKeys(config.xAxis, Array.from(new Set([...buckets.keys(), ...completedBuckets.keys()])), (k) =>
+              bucketDate(config.xAxis, k, buckets.get(k) ?? [], completedBuckets.get(k) ?? []),
+            )
+      const dateOf = (key: string) =>
+        bucketDate(config.xAxis, key, buckets.get(key) ?? [], completedBuckets.get(key) ?? [])
       if (config.yAxis === 'avg_mood') {
         // Only buckets that have at least one book with a mood tag get a
         // point — an empty month isn't a "neutral" month.
         return keys.flatMap((key) => {
           const avg = averageMood(completedBuckets.get(key) ?? [])
-          return avg == null ? [] : [{ label: displayLabel(config.xAxis, key), value: avg }]
+          return avg == null ? [] : [{ label: displayLabel(config.xAxis, key), value: avg, date: dateOf(key) }]
         })
       }
-      return keys.map((key) => ({ label: displayLabel(config.xAxis, key), value: (completedBuckets.get(key) ?? []).length }))
+      return keys.map((key) => ({
+        label: displayLabel(config.xAxis, key),
+        value: (completedBuckets.get(key) ?? []).length,
+        date: dateOf(key),
+      }))
     }
-    const keys = config.xAxis === 'day_of_week' ? DAY_NAMES : Array.from(buckets.keys()).sort()
+    const keys =
+      config.xAxis === 'day_of_week'
+        ? DAY_NAMES
+        : sortedKeys(config.xAxis, Array.from(buckets.keys()), (k) =>
+            bucketDate(config.xAxis, k, buckets.get(k) ?? [], []),
+          )
     return keys.map((key) => ({
       label: displayLabel(config.xAxis, key),
-      value: aggregateY(config.yAxis, buckets.get(key) ?? [], []),
+      value: aggregateY(config.yAxis, buckets.get(key) ?? [], [], start, end),
+      date: bucketDate(config.xAxis, key, buckets.get(key) ?? [], []),
     }))
   }
 
   if (CATEGORY_AXES.includes(config.xAxis)) {
-    const bookGroups = new Map<string, Book[]>()
+    // Only books that had activity in the selected timeframe count: a
+    // reading log in range, or a start / finish date in range. Without
+    // this the genre / format / ownership / mood charts ignored the
+    // timeframe and always showed the whole library.
+    const activeIds = new Set(derivedInRange.map((d) => d.book.id))
     for (const b of books) {
+      if (b.completedAt && inRange(b.completedAt, start, end)) activeIds.add(b.id)
+      if (b.startedAt && inRange(b.startedAt, start, end)) activeIds.add(b.id)
+    }
+    const activeBooks = books.filter((b) => activeIds.has(b.id))
+
+    const bookGroups = new Map<string, Book[]>()
+    for (const b of activeBooks) {
       // A book can carry several moods; it counts once under each of them.
       const keys = config.xAxis === 'mood' ? moodsOf(b) : [categoryKeyFor(config.xAxis, b)]
       for (const key of keys) {
@@ -188,7 +239,7 @@ export function computeChartData(
       .map(([label, groupBooks]) => {
         const bookIds = new Set(groupBooks.map((b) => b.id))
         const groupLogs = derivedInRange.filter((d) => bookIds.has(d.book.id))
-        return { label, value: aggregateY(config.yAxis, groupLogs, groupBooks) }
+        return { label, value: aggregateY(config.yAxis, groupLogs, groupBooks, start, end) }
       })
       .sort((a, b) => b.value - a.value)
   }

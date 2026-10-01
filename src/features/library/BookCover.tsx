@@ -29,17 +29,47 @@ function toneFor(seed: string): string {
  *  naturalWidth on load. Either way we fall back to the tinted tile
  *  rather than showing a broken-image icon or a blank stretched pixel. */
 export function BookCover({ title, coverUrl, seed, size = 'md' }: Props) {
-  const [failed, setFailed] = useState(false)
+  // Failure state is remembered per URL. (It used to be a plain boolean, so
+  // once one cover failed, whichever book later took over that shelf slot
+  // — after a filter, search or reorder — inherited the failure and showed
+  // the fallback tile even though its own image was fine.)
+  const [status, setStatus] = useState<{ url?: string; retries: number; failed: boolean }>({
+    url: coverUrl,
+    retries: 0,
+    failed: false,
+  })
+  const current = status.url === coverUrl ? status : { url: coverUrl, retries: 0, failed: false }
   const dims = size === 'xs' ? 'w-9 h-[54px]' : size === 'sm' ? 'w-14 h-20' : 'w-full aspect-[2/3]'
 
-  if (coverUrl && !failed) {
+  // A shelf can ask Open Library for hundreds of covers at once and get
+  // throttled; retry a couple of times, spaced out, before giving up.
+  const canRetry = !!coverUrl && !coverUrl.startsWith('data:') && current.retries < 2
+  const src =
+    coverUrl && current.retries > 0 && !coverUrl.startsWith('data:')
+      ? `${coverUrl}${coverUrl.includes('?') ? '&' : '?'}retry=${current.retries}`
+      : coverUrl
+
+  if (coverUrl && !current.failed) {
     return (
       <img
-        src={coverUrl}
+        src={src}
         alt=""
-        onError={() => setFailed(true)}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => {
+          if (canRetry) {
+            window.setTimeout(
+              () => setStatus({ url: coverUrl, retries: current.retries + 1, failed: false }),
+              1500 * (current.retries + 1),
+            )
+          } else {
+            setStatus({ url: coverUrl, retries: current.retries, failed: true })
+          }
+        }}
         onLoad={(e) => {
-          if (e.currentTarget.naturalWidth <= 2) setFailed(true)
+          // Open Library answers "no cover" with a 1x1 placeholder.
+          if (e.currentTarget.naturalWidth <= 2) setStatus({ url: coverUrl, retries: current.retries, failed: true })
         }}
         className={`${dims} object-cover rounded shadow-[0_2px_6px_rgba(0,0,0,0.35)] border border-hairline shrink-0`}
       />
