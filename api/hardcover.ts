@@ -54,6 +54,7 @@ query Library($limit: Int!, $offset: Int!) {
         isbn_13
         asin
         pages
+        audio_seconds
         edition_format
         physical_format
         reading_format { format }
@@ -79,9 +80,29 @@ query EditionsByCode($codes: [String!]) {
     isbn_10
     asin
     pages
+    audio_seconds
     edition_format
     physical_format
     reading_format { format }
+  }
+}`
+
+const BOOK_EDITIONS_QUERY = `
+query BookEditions($bookId: Int!) {
+  editions(where: { book_id: { _eq: $bookId } }, order_by: { users_count: desc }, limit: 100) {
+    id
+    isbn_13
+    isbn_10
+    asin
+    pages
+    audio_seconds
+    edition_format
+    physical_format
+    reading_format { format }
+    language { language }
+    publisher { name }
+    release_date
+    users_count
   }
 }`
 
@@ -149,6 +170,15 @@ async function editionsOp(codes: unknown) {
   return { editions: (data.editions ?? []) as unknown[] }
 }
 
+/** Every edition Hardcover lists for one book, most-used first, so the review screen can
+ *  offer the edition that matches the format you actually read. Read-only. */
+async function bookEditionsOp(bookId: unknown) {
+  const id = typeof bookId === 'number' && Number.isInteger(bookId) && bookId > 0 ? bookId : undefined
+  if (id === undefined) throw new Error('bookEditions needs a numeric bookId')
+  const data = await hardcover(BOOK_EDITIONS_QUERY, { bookId: id })
+  return { editions: (data.editions ?? []) as unknown[] }
+}
+
 export default async function handler(req: Req, res: Res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' })
 
@@ -168,13 +198,15 @@ export default async function handler(req: Req, res: Res) {
   if (!email) return res.status(401).json({ ok: false, error: 'Not signed in.' })
   if (!allowed.includes(email)) return res.status(403).json({ ok: false, error: 'This account is not allowed to use the Hardcover link.' })
 
-  const body = (typeof req.body === 'string' ? safeParse(req.body) : req.body) as { op?: string; codes?: unknown } | undefined
+  const body = (typeof req.body === 'string' ? safeParse(req.body) : req.body) as { op?: string; codes?: unknown; bookId?: unknown } | undefined
   try {
     switch (body?.op) {
       case 'library':
         return res.status(200).json({ ok: true, ...(await libraryOp()) })
       case 'editions':
         return res.status(200).json({ ok: true, ...(await editionsOp(body.codes)) })
+      case 'bookEditions':
+        return res.status(200).json({ ok: true, ...(await bookEditionsOp(body.bookId)) })
       default:
         return res.status(400).json({ ok: false, error: `Unknown operation: ${body?.op ?? '(none)'}` })
     }

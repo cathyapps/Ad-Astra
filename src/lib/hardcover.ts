@@ -25,6 +25,7 @@ export interface HcEntry {
   editionFormat?: string
   physicalFormat?: string
   readingFormat?: string
+  audioSeconds?: number
   editionPages?: number
   reads: HcRead[]
   /** Mood tag names, most-tagged first. */
@@ -87,23 +88,48 @@ export function normalizeHcEntry(raw: Json): HcEntry | undefined {
     editionFormat: str(edition?.edition_format),
     physicalFormat: str(edition?.physical_format),
     readingFormat: str((edition?.reading_format as Json | null | undefined)?.format),
+    audioSeconds: num(edition?.audio_seconds),
     editionPages: num(edition?.pages),
     reads,
     moods: tagNames(book?.cached_tags, 'Mood'),
   }
 }
 
-/** "Paperback · 416 pp" style summary of an edition's format and length. */
+export type EditionKind = 'print' | 'ebook' | 'audio' | 'unknown'
+
+/** Best guess at print / ebook / audio from the fields Hardcover fills in on an edition. */
+export function editionKind(e: {
+  audioSeconds?: number
+  readingFormat?: string
+  physicalFormat?: string
+  editionFormat?: string
+}): EditionKind {
+  const text = [e.readingFormat, e.physicalFormat, e.editionFormat].filter(Boolean).join(' ').toLowerCase()
+  if ((e.audioSeconds ?? 0) > 0 || /audio|listen|mp3/.test(text)) return 'audio'
+  if (/e-?book|kindle|digital|epub/.test(text)) return 'ebook'
+  if (/paperback|hardcover|hardback|mass market|board|print|physical|pocket|trade|library binding/.test(text)) return 'print'
+  return 'unknown'
+}
+
+function duration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.round((seconds % 3600) / 60)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+/** "Paperback · 416 pp" / "Audiobook · 11h 20m" style summary of an edition's format and length. */
 export function editionDetail(e: {
   readingFormat?: string
   physicalFormat?: string
   editionFormat?: string
   pages?: number
+  audioSeconds?: number
 }): string {
   const kind = e.physicalFormat ?? e.editionFormat
   const parts = [e.readingFormat && e.readingFormat !== kind ? e.readingFormat : undefined, kind]
   const text = parts.filter(Boolean).join(' ')
-  return [text || undefined, e.pages ? `${e.pages} pp` : undefined].filter(Boolean).join(' · ')
+  const length = (e.audioSeconds ?? 0) > 0 ? duration(e.audioSeconds!) : e.pages ? `${e.pages} pp` : undefined
+  return [text || undefined, length].filter(Boolean).join(' · ')
 }
 
 export interface HcEdition {
@@ -138,6 +164,7 @@ export async function fetchEditionsByCode(codes: string[]): Promise<Map<string, 
           physicalFormat: str(ed.physical_format),
           editionFormat: str(ed.edition_format),
           pages: num(ed.pages),
+          audioSeconds: num(ed.audio_seconds),
         }),
         pages: num(ed.pages),
       }
@@ -145,6 +172,60 @@ export async function fetchEditionsByCode(codes: string[]): Promise<Map<string, 
         if (code && !out.has(code.toUpperCase())) out.set(code.toUpperCase(), info)
       }
     }
+  }
+  return out
+}
+
+/** One edition of a book on Hardcover, as offered in the "find another edition" picker. */
+export interface HcEditionOption {
+  id: number
+  isbn13?: string
+  isbn10?: string
+  asin?: string
+  kind: EditionKind
+  detail: string
+  language?: string
+  publisher?: string
+  year?: string
+  usersCount?: number
+}
+
+/** Every edition Hardcover has for one book, most-used first. */
+export async function fetchBookEditions(bookId: number): Promise<HcEditionOption[]> {
+  if (!supabase) throw new Error('Hardcover needs the Supabase (signed-in) version of the app.')
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Not signed in.')
+  const res = await fetch('/api/hardcover', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ op: 'bookEditions', bookId }),
+  })
+  const json = (await res.json().catch(() => undefined)) as { ok?: boolean; error?: string; editions?: Json[] } | undefined
+  if (!res.ok || !json?.ok) throw new Error(json?.error ?? `Hardcover request failed (HTTP ${res.status})`)
+  const out: HcEditionOption[] = []
+  for (const ed of json.editions ?? []) {
+    const id = num(ed.id)
+    if (id == null) continue
+    const fmt = {
+      readingFormat: str((ed.reading_format as Json | null | undefined)?.format),
+      physicalFormat: str(ed.physical_format),
+      editionFormat: str(ed.edition_format),
+      pages: num(ed.pages),
+      audioSeconds: num(ed.audio_seconds),
+    }
+    out.push({
+      id,
+      isbn13: str(ed.isbn_13),
+      isbn10: str(ed.isbn_10),
+      asin: str(ed.asin)?.toUpperCase(),
+      kind: editionKind(fmt),
+      detail: editionDetail(fmt),
+      language: str((ed.language as Json | null | undefined)?.language),
+      publisher: str((ed.publisher as Json | null | undefined)?.name),
+      year: str(ed.release_date)?.slice(0, 4),
+      usersCount: num(ed.users_count),
+    })
   }
   return out
 }

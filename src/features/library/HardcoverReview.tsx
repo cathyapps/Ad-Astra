@@ -2,17 +2,27 @@ import { useMemo, useState } from 'react'
 import type { Book } from '@/types/library'
 import { BottomSheet } from '@/features/shared/BottomSheet'
 import { BookCover } from './BookCover'
-import { fetchEditionsByCode, fetchHardcoverLibrary, HC_STATUS_LABELS, type HcEdition } from '@/lib/hardcover'
 import {
+  fetchBookEditions,
+  fetchEditionsByCode,
+  fetchHardcoverLibrary,
+  HC_STATUS_LABELS,
+  type HcEdition,
+  type HcEditionOption,
+} from '@/lib/hardcover'
+import {
+  altPatch,
   compareLibraries,
   FIELD_LABELS,
   linkPatch,
+  matchesBookFormat,
+  optionCode,
   type CompareResult,
   type CompareRow,
   type FieldKey,
 } from '@/lib/hardcoverCompare'
 
-type Pick = 'ad' | 'hc'
+type Pick = 'ad' | 'hc' | 'alt'
 type Picks = Partial<Record<FieldKey, Pick>>
 type BookPatch = { id: string; patch: Partial<Book> }
 
@@ -40,6 +50,7 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
   const [message, setMessage] = useState('')
   const [showUnmatched, setShowUnmatched] = useState(false)
   const [editions, setEditions] = useState<Map<string, HcEdition>>(new Map())
+  const [alts, setAlts] = useState<Record<string, HcEditionOption>>({})
 
   async function load() {
     setPhase('loading')
@@ -51,6 +62,7 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
       setUsername(name)
       setResult(compared)
       setPicks({})
+      setAlts({})
 
       // Ad Astra has no moods for these books, so Hardcover's are taken as-is
       // (nothing is overwritten). Books you've already reviewed are left alone.
@@ -125,7 +137,10 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
   function patchFor(row: CompareRow): BookPatch {
     const chosen = picksFor(row)
     let patch: Partial<Book> = { ...linkPatch(row, chosen), hardcoverReviewedAt: new Date().toISOString() }
-    for (const d of choices(row)) if (chosen[d.field] === 'hc') patch = { ...patch, ...d.patch }
+    for (const d of choices(row)) {
+      if (chosen[d.field] === 'hc') patch = { ...patch, ...d.patch }
+      else if (chosen[d.field] === 'alt' && d.field === 'isbn' && alts[row.book.id]) patch = { ...patch, ...altPatch(alts[row.book.id]) }
+    }
     return { id: row.book.id, patch }
   }
 
@@ -248,6 +263,11 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
                   picks={picksFor(row)}
                   diffs={choices(row)}
                   editions={editions}
+                  alt={alts[row.book.id]}
+                  onChooseEdition={(opt) => {
+                    setAlts((a) => ({ ...a, [row.book.id]: opt }))
+                    setPick(row, 'isbn', 'alt')
+                  }}
                   saving={saving}
                   onPick={(field, v) => setPick(row, field, v)}
                   onPickAll={(v) => setAll(row, v)}
@@ -298,6 +318,8 @@ function ReviewCard({
   picks,
   diffs,
   editions,
+  alt,
+  onChooseEdition,
   saving,
   onPick,
   onPickAll,
@@ -307,6 +329,8 @@ function ReviewCard({
   picks: Picks
   diffs: CompareRow['diffs']
   editions: Map<string, HcEdition>
+  alt?: HcEditionOption
+  onChooseEdition: (opt: HcEditionOption) => void
   saving: boolean
   onPick: (field: FieldKey, v: Pick) => void
   onPickAll: (v: Pick) => void
@@ -344,6 +368,13 @@ function ReviewCard({
               {d.hcLabel}
             </button>
           </div>
+          {d.field === 'isbn' && alt && (
+            <button type="button" className={`w-full ${toggle(picks.isbn === 'alt')}`} onClick={() => onPick('isbn', 'alt')}>
+              <span className="block text-[10px] text-moon-dim">Other Hardcover edition</span>
+              {optionCode(alt) ?? 'no ISBN or ASIN on Hardcover (links the edition only)'} · {alt.detail || 'format unknown'}
+            </button>
+          )}
+          {d.field === 'isbn' && <EditionFinder row={row} onChoose={onChooseEdition} />}
         </div>
       ))}
 
@@ -363,6 +394,77 @@ function ReviewCard({
           Save
         </button>
       </div>
+    </div>
+  )
+}
+
+/** Lists the other editions Hardcover has for this book, those matching the Ad Astra format
+ *  first, so you can pick the one you actually read when neither side is right. */
+function EditionFinder({ row, onChoose }: { row: CompareRow; onChoose: (opt: HcEditionOption) => void }) {
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [error, setError] = useState('')
+  const [options, setOptions] = useState<HcEditionOption[]>([])
+  const [showAll, setShowAll] = useState(false)
+
+  async function find() {
+    setPhase('loading')
+    setError('')
+    try {
+      setOptions(await fetchBookEditions(row.entry.bookId))
+      setPhase('ready')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setPhase('error')
+    }
+  }
+
+  const wanted = row.book.format
+  const matching = options.filter((o) => matchesBookFormat(wanted, o.kind))
+  const list = showAll ? options : matching
+  const label = wanted === 'tbd' ? 'any format' : wanted === 'kindle' ? 'ebook' : wanted
+
+  return (
+    <div className="space-y-1">
+      {phase === 'idle' && (
+        <button type="button" className="text-[11px] text-cosmic hover:text-moon" onClick={() => void find()}>
+          Find other editions ({label})
+        </button>
+      )}
+      {phase === 'loading' && <p className="text-[11px] text-moon-dim">Looking up editions…</p>}
+      {phase === 'error' && (
+        <p className="text-[11px] text-red-300">
+          {error}{' '}
+          <button type="button" className="underline" onClick={() => void find()}>
+            retry
+          </button>
+        </p>
+      )}
+      {phase === 'ready' && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-moon-dim">
+            {showAll ? `All ${options.length} editions` : `${matching.length} ${label} editions`} on Hardcover, most-used first
+          </p>
+          {list.length === 0 && <p className="text-[11px] text-moon-dim">None found in this format.</p>}
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {list.slice(0, showAll ? 100 : 12).map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                className="w-full text-left rounded-lg border border-hairline px-2.5 py-1.5 text-xs text-moon-dim hover:bg-card-hover transition-colors"
+                onClick={() => onChoose(o)}
+              >
+                <span className="text-moon">{optionCode(o) ?? 'no ISBN or ASIN'}</span> · {o.detail || 'format unknown'}
+                <span className="block text-[10px]">
+                  {[o.publisher, o.year, o.language, o.usersCount ? `${o.usersCount} readers` : undefined].filter(Boolean).join(' · ')}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="text-[11px] text-cosmic hover:text-moon" onClick={() => setShowAll((v) => !v)}>
+            {showAll ? `Only ${label}` : 'Show all formats'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

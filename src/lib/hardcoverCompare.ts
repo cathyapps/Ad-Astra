@@ -11,12 +11,9 @@
 import type { Book, BookReadStatus } from '@/types/library'
 import { appDayKey } from '@/lib/appDate'
 import { MOOD_SCORES, moodsOf } from '@/lib/moods'
-import { editionDetail, type HcEntry, type HcRead } from '@/lib/hardcover'
+import { editionDetail, editionKind, type HcEditionOption, type HcEntry, type HcRead } from '@/lib/hardcover'
 
 export const REVIEWED_STATUSES: BookReadStatus[] = ['reading', 'paused', 'read', 'dnf']
-
-/** Hardcover tags moods by popularity; keep the top few, like StoryGraph's headline moods. */
-export const HC_MOOD_LIMIT = 3
 
 export type FieldKey = 'dates' | 'isbn' | 'rating' | 'moods'
 export const FIELD_LABELS: Record<FieldKey, string> = {
@@ -198,6 +195,7 @@ function diffIsbn(book: Book, entry: HcEntry): FieldDiff | undefined {
     physicalFormat: entry.physicalFormat,
     editionFormat: entry.editionFormat,
     pages: entry.editionPages,
+    audioSeconds: entry.audioSeconds,
   })
   return {
     field: 'isbn',
@@ -225,11 +223,13 @@ function diffRating(book: Book, entry: HcEntry): FieldDiff | undefined {
 const normTag = (t: string) => t.trim().toLowerCase()
 
 function diffMoods(book: Book, entry: HcEntry): FieldDiff | undefined {
-  const hcMoods = Array.from(new Set(entry.moods.map(normTag))).slice(0, HC_MOOD_LIMIT)
+  // Every mood Hardcover has for the book, not just the most-tagged few.
+  const hcMoods = Array.from(new Set(entry.moods.map(normTag)))
   if (hcMoods.length === 0) return undefined
   const ad = moodsOf(book)
   const auto = ad.length === 0
-  if (ad.length === hcMoods.length && ad.every((m) => hcMoods.includes(m))) return undefined
+  // Never shrink a list: if Ad Astra already has every mood Hardcover has, there's nothing to take.
+  if (hcMoods.every((m) => ad.includes(m))) return undefined
   // Replace only the mood tags; every other tag on the book stays put.
   const kept = book.tags.filter((t) => !(normTag(t) in MOOD_SCORES))
   return {
@@ -253,6 +253,27 @@ export function compareLibraries(books: Book[], entries: HcEntry[]): CompareResu
     ),
   }))
   return { rows, unmatched }
+}
+
+// --- picking a different Hardcover edition ---------------------------------
+
+/** The Ad Astra book formats that count as "the same format" as a Hardcover edition kind. */
+export function matchesBookFormat(bookFormat: Book['format'], kind: ReturnType<typeof editionKind>): boolean {
+  if (bookFormat === 'tbd') return kind !== 'unknown'
+  if (bookFormat === 'kindle') return kind === 'ebook'
+  if (bookFormat === 'audio') return kind === 'audio'
+  return kind === 'print'
+}
+
+/** The code Ad Astra stores for an edition: ISBN-13, else ISBN-10 converted, else the Kindle/audio ASIN. */
+export function optionCode(o: HcEditionOption): string | undefined {
+  return toIsbn13(o.isbn13) ?? toIsbn13(o.isbn10) ?? o.asin?.toUpperCase()
+}
+
+/** What choosing a specific Hardcover edition writes: its code (when it has one) and its edition id. */
+export function altPatch(o: HcEditionOption): Partial<Book> {
+  const code = optionCode(o)
+  return { ...(code ? { isbn: code } : {}), hardcoverEditionId: o.id }
 }
 
 /** The link fields saved with a row so the later sync knows which Hardcover entry is which.
