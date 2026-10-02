@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Book } from '@/types/library'
 import { BottomSheet } from '@/features/shared/BottomSheet'
 import { BookCover } from './BookCover'
-import { fetchHardcoverLibrary, HC_STATUS_LABELS } from '@/lib/hardcover'
+import { fetchEditionsByCode, fetchHardcoverLibrary, HC_STATUS_LABELS, type HcEdition } from '@/lib/hardcover'
 import {
   compareLibraries,
   FIELD_LABELS,
@@ -39,6 +39,7 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [showUnmatched, setShowUnmatched] = useState(false)
+  const [editions, setEditions] = useState<Map<string, HcEdition>>(new Map())
 
   async function load() {
     setPhase('loading')
@@ -46,9 +47,35 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
     setMessage('')
     try {
       const { username: name, entries } = await fetchHardcoverLibrary()
+      const compared = compareLibraries(books, entries)
       setUsername(name)
-      setResult(compareLibraries(books, entries))
+      setResult(compared)
       setPicks({})
+
+      // Ad Astra has no moods for these books, so Hardcover's are taken as-is
+      // (nothing is overwritten). Books you've already reviewed are left alone.
+      const fills: BookPatch[] = []
+      for (const row of compared.rows) {
+        if (row.book.hardcoverReviewedAt) continue
+        const mood = row.diffs.find((d) => d.field === 'moods' && d.auto)
+        if (mood) fills.push({ id: row.book.id, patch: mood.patch })
+      }
+      if (fills.length > 0) {
+        const failed = await onApplyPatches(fills)
+        setMessage(
+          failed > 0
+            ? `Filled moods for ${fills.length - failed} books from Hardcover; ${failed} couldn't be saved.`
+            : `Filled in moods from Hardcover for ${fills.length} books that had none.`,
+        )
+      }
+
+      // Format + page count of the ISBN currently on each Ad Astra book (best effort).
+      try {
+        const codes = compared.rows.flatMap((r) => r.diffs.filter((d) => d.field === 'isbn' && d.adCode).map((d) => d.adCode!))
+        setEditions(await fetchEditionsByCode(codes))
+      } catch {
+        setEditions(new Map())
+      }
       setPhase('ready')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -63,15 +90,17 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
     [books],
   )
   const pending = useMemo(() => (result?.rows ?? []).filter((r) => !reviewedIds.has(r.book.id)), [result, reviewedIds])
-  const withDiffs = pending.filter((r) => r.diffs.length > 0)
-  const inSync = pending.filter((r) => r.diffs.length === 0)
-  const shown = filter === 'all' ? withDiffs : withDiffs.filter((r) => r.diffs.some((d) => d.field === filter))
+  // Mood fills for empty books were already applied on load, so only real choices are shown.
+  const choices = (r: CompareRow) => r.diffs.filter((d) => !d.auto)
+  const withDiffs = pending.filter((r) => choices(r).length > 0)
+  const inSync = pending.filter((r) => choices(r).length === 0)
+  const shown = filter === 'all' ? withDiffs : withDiffs.filter((r) => choices(r).some((d) => d.field === filter))
   const fieldCounts = Object.fromEntries(
-    FIELDS.map((f) => [f, withDiffs.filter((r) => r.diffs.some((d) => d.field === f)).length]),
+    FIELDS.map((f) => [f, withDiffs.filter((r) => choices(r).some((d) => d.field === f)).length]),
   ) as Record<FieldKey, number>
 
   const picksFor = (row: CompareRow): Picks => picks[row.book.id] ?? {}
-  const fullyPicked = (row: CompareRow) => row.diffs.every((d) => picksFor(row)[d.field])
+  const fullyPicked = (row: CompareRow) => choices(row).every((d) => picksFor(row)[d.field])
   const readyToSave = shown.filter(fullyPicked)
 
   function setPick(row: CompareRow, field: FieldKey, value: Pick) {
@@ -79,7 +108,7 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
   }
 
   function setAll(row: CompareRow, value: Pick) {
-    setPicks((p) => ({ ...p, [row.book.id]: Object.fromEntries(row.diffs.map((d) => [d.field, value])) }))
+    setPicks((p) => ({ ...p, [row.book.id]: Object.fromEntries(choices(row).map((d) => [d.field, value])) }))
   }
 
   /** Bulk helper: choose Hardcover (or Ad Astra) for one field across every book shown. Saves nothing. */
@@ -87,7 +116,7 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
     setPicks((p) => {
       const next = { ...p }
       for (const row of shown) {
-        if (row.diffs.some((d) => d.field === field)) next[row.book.id] = { ...next[row.book.id], [field]: value }
+        if (choices(row).some((d) => d.field === field)) next[row.book.id] = { ...next[row.book.id], [field]: value }
       }
       return next
     })
@@ -96,7 +125,7 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
   function patchFor(row: CompareRow): BookPatch {
     const chosen = picksFor(row)
     let patch: Partial<Book> = { ...linkPatch(row, chosen), hardcoverReviewedAt: new Date().toISOString() }
-    for (const d of row.diffs) if (chosen[d.field] === 'hc') patch = { ...patch, ...d.patch }
+    for (const d of choices(row)) if (chosen[d.field] === 'hc') patch = { ...patch, ...d.patch }
     return { id: row.book.id, patch }
   }
 
@@ -121,7 +150,7 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
   }
 
   async function saveAllReady() {
-    const hcCount = readyToSave.reduce((n, r) => n + r.diffs.filter((d) => picksFor(r)[d.field] === 'hc').length, 0)
+    const hcCount = readyToSave.reduce((n, r) => n + choices(r).filter((d) => picksFor(r)[d.field] === 'hc').length, 0)
     if (!window.confirm(`Save ${readyToSave.length} books? ${hcCount} fields will switch to Hardcover's value; the rest stay as they are in Ad Astra.`)) return
     await save(readyToSave)
   }
@@ -217,6 +246,8 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
                   key={row.book.id}
                   row={row}
                   picks={picksFor(row)}
+                  diffs={choices(row)}
+                  editions={editions}
                   saving={saving}
                   onPick={(field, v) => setPick(row, field, v)}
                   onPickAll={(v) => setAll(row, v)}
@@ -250,9 +281,23 @@ export function HardcoverReview({ books, onApplyPatches, onClose }: Props) {
   )
 }
 
+/** What the ISBN currently on the Ad Astra book is: its edition's format and length from
+ *  Hardcover when known, otherwise the book's own format and page total as a stand-in. */
+function adIsbnDetail(row: CompareRow, code: string | undefined, editions: Map<string, HcEdition>): string {
+  if (!code) return ''
+  const ed = editions.get(code.toUpperCase())
+  if (ed?.detail) return ed.detail
+  const own = [row.book.format !== 'tbd' ? row.book.format : undefined, row.book.totalPages ? `${row.book.totalPages} pp` : undefined]
+    .filter(Boolean)
+    .join(' · ')
+  return own ? `not on Hardcover · book record: ${own}` : 'not on Hardcover'
+}
+
 function ReviewCard({
   row,
   picks,
+  diffs,
+  editions,
   saving,
   onPick,
   onPickAll,
@@ -260,12 +305,14 @@ function ReviewCard({
 }: {
   row: CompareRow
   picks: Picks
+  diffs: CompareRow['diffs']
+  editions: Map<string, HcEdition>
   saving: boolean
   onPick: (field: FieldKey, v: Pick) => void
   onPickAll: (v: Pick) => void
   onSave: () => void
 }) {
-  const complete = row.diffs.every((d) => picks[d.field])
+  const complete = diffs.every((d) => picks[d.field])
   const toggle = (active: boolean) =>
     `flex-1 text-left rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
       active ? 'border-gold bg-gold/10 text-moon' : 'border-hairline text-moon-dim hover:bg-card-hover'
@@ -283,13 +330,14 @@ function ReviewCard({
         </div>
       </div>
 
-      {row.diffs.map((d) => (
+      {diffs.map((d) => (
         <div key={d.field} className="space-y-1">
           <p className="text-[11px] uppercase tracking-wide text-moon-dim">{FIELD_LABELS[d.field]}</p>
           <div className="flex gap-1.5">
             <button type="button" className={toggle(picks[d.field] === 'ad')} onClick={() => onPick(d.field, 'ad')}>
               <span className="block text-[10px] text-moon-dim">Ad Astra</span>
               {d.adLabel}
+              {d.field === 'isbn' && <span className="block text-moon-dim">{adIsbnDetail(row, d.adCode, editions)}</span>}
             </button>
             <button type="button" className={toggle(picks[d.field] === 'hc')} onClick={() => onPick(d.field, 'hc')}>
               <span className="block text-[10px] text-moon-dim">Hardcover</span>

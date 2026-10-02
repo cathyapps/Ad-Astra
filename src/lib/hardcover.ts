@@ -21,7 +21,10 @@ export interface HcEntry {
   rating?: number
   isbn13?: string
   isbn10?: string
+  asin?: string
   editionFormat?: string
+  physicalFormat?: string
+  readingFormat?: string
   editionPages?: number
   reads: HcRead[]
   /** Mood tag names, most-tagged first. */
@@ -80,11 +83,70 @@ export function normalizeHcEntry(raw: Json): HcEntry | undefined {
     rating: num(raw.rating),
     isbn13: str(edition?.isbn_13),
     isbn10: str(edition?.isbn_10),
+    asin: str(edition?.asin)?.toUpperCase(),
     editionFormat: str(edition?.edition_format),
+    physicalFormat: str(edition?.physical_format),
+    readingFormat: str((edition?.reading_format as Json | null | undefined)?.format),
     editionPages: num(edition?.pages),
     reads,
     moods: tagNames(book?.cached_tags, 'Mood'),
   }
+}
+
+/** "Paperback · 416 pp" style summary of an edition's format and length. */
+export function editionDetail(e: {
+  readingFormat?: string
+  physicalFormat?: string
+  editionFormat?: string
+  pages?: number
+}): string {
+  const kind = e.physicalFormat ?? e.editionFormat
+  const parts = [e.readingFormat && e.readingFormat !== kind ? e.readingFormat : undefined, kind]
+  const text = parts.filter(Boolean).join(' ')
+  return [text || undefined, e.pages ? `${e.pages} pp` : undefined].filter(Boolean).join(' · ')
+}
+
+export interface HcEdition {
+  detail: string
+  pages?: number
+}
+
+/** Format and page count for each of the given ISBNs / ASINs, keyed by the code you asked about
+ *  (upper-case). Codes Hardcover doesn't know are simply absent. */
+export async function fetchEditionsByCode(codes: string[]): Promise<Map<string, HcEdition>> {
+  const out = new Map<string, HcEdition>()
+  const wanted = Array.from(new Set(codes.map((c) => c.toUpperCase())))
+  if (wanted.length === 0) return out
+  if (!supabase) throw new Error('Hardcover needs the Supabase (signed-in) version of the app.')
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Not signed in.')
+
+  for (let i = 0; i < wanted.length; i += 100) {
+    const chunk = wanted.slice(i, i + 100)
+    const res = await fetch('/api/hardcover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ op: 'editions', codes: chunk }),
+    })
+    const json = (await res.json().catch(() => undefined)) as { ok?: boolean; error?: string; editions?: Json[] } | undefined
+    if (!res.ok || !json?.ok) throw new Error(json?.error ?? `Hardcover request failed (HTTP ${res.status})`)
+    for (const ed of json.editions ?? []) {
+      const info: HcEdition = {
+        detail: editionDetail({
+          readingFormat: str((ed.reading_format as Json | null | undefined)?.format),
+          physicalFormat: str(ed.physical_format),
+          editionFormat: str(ed.edition_format),
+          pages: num(ed.pages),
+        }),
+        pages: num(ed.pages),
+      }
+      for (const code of [str(ed.isbn_13), str(ed.isbn_10), str(ed.asin)]) {
+        if (code && !out.has(code.toUpperCase())) out.set(code.toUpperCase(), info)
+      }
+    }
+  }
+  return out
 }
 
 /** Fetches your whole Hardcover library through the server function. */

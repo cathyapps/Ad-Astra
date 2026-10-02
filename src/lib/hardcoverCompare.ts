@@ -11,7 +11,7 @@
 import type { Book, BookReadStatus } from '@/types/library'
 import { appDayKey } from '@/lib/appDate'
 import { MOOD_SCORES, moodsOf } from '@/lib/moods'
-import type { HcEntry, HcRead } from '@/lib/hardcover'
+import { editionDetail, type HcEntry, type HcRead } from '@/lib/hardcover'
 
 export const REVIEWED_STATUSES: BookReadStatus[] = ['reading', 'paused', 'read', 'dnf']
 
@@ -34,6 +34,10 @@ export interface FieldDiff {
   hcLabel: string
   /** What choosing Hardcover's value writes to the book. */
   patch: Partial<Book>
+  /** Applied without asking (Ad Astra had nothing there, so nothing is overwritten). Not shown as a choice. */
+  auto?: boolean
+  /** ISBN rows only: the code currently on the Ad Astra book, so its edition can be looked up. */
+  adCode?: string
 }
 
 export interface CompareRow {
@@ -67,6 +71,14 @@ export function toIsbn13(raw: string | undefined): string | undefined {
   let sum = 0
   for (let i = 0; i < 12; i++) sum += Number(body[i]) * (i % 2 === 0 ? 1 : 3)
   return body + String((10 - (sum % 10)) % 10)
+}
+
+/** The ISBN-13 for ISBNs, or the upper-cased ASIN for Kindle IDs (B0…); undefined for anything else. */
+export function editionCode(raw: string | undefined): string | undefined {
+  const isbn = toIsbn13(raw)
+  if (isbn) return isbn
+  const s = raw?.replace(/\s/g, '').toUpperCase()
+  return s && /^B0[0-9A-Z]{8}$/.test(s) ? s : undefined
 }
 
 // --- title helpers --------------------------------------------------------
@@ -174,15 +186,25 @@ function diffDates(book: Book, entry: HcEntry): FieldDiff | undefined {
 }
 
 function diffIsbn(book: Book, entry: HcEntry): FieldDiff | undefined {
-  const hc13 = toIsbn13(entry.isbn13) ?? toIsbn13(entry.isbn10)
-  if (!hc13) return undefined
-  if (toIsbn13(book.isbn) === hc13) return undefined
-  const detail = [entry.editionFormat, entry.editionPages ? `${entry.editionPages} pp` : undefined].filter(Boolean).join(' · ')
+  const hcCodes = [toIsbn13(entry.isbn13), toIsbn13(entry.isbn10), entry.asin?.toUpperCase()].filter(
+    (c): c is string => !!c,
+  )
+  if (hcCodes.length === 0) return undefined
+  const adCode = editionCode(book.isbn)
+  if (adCode && hcCodes.includes(adCode)) return undefined
+  const hcShown = hcCodes[0]
+  const detail = editionDetail({
+    readingFormat: entry.readingFormat,
+    physicalFormat: entry.physicalFormat,
+    editionFormat: entry.editionFormat,
+    pages: entry.editionPages,
+  })
   return {
     field: 'isbn',
     adLabel: book.isbn ? book.isbn : 'none on file',
-    hcLabel: detail ? `${hc13} · ${detail}` : hc13,
-    patch: { isbn: hc13, ...(entry.editionId != null ? { hardcoverEditionId: entry.editionId } : {}) },
+    hcLabel: detail ? `${hcShown} · ${detail}` : hcShown,
+    adCode: adCode ?? book.isbn?.trim(),
+    patch: { isbn: hcShown, ...(entry.editionId != null ? { hardcoverEditionId: entry.editionId } : {}) },
   }
 }
 
@@ -206,6 +228,7 @@ function diffMoods(book: Book, entry: HcEntry): FieldDiff | undefined {
   const hcMoods = Array.from(new Set(entry.moods.map(normTag))).slice(0, HC_MOOD_LIMIT)
   if (hcMoods.length === 0) return undefined
   const ad = moodsOf(book)
+  const auto = ad.length === 0
   if (ad.length === hcMoods.length && ad.every((m) => hcMoods.includes(m))) return undefined
   // Replace only the mood tags; every other tag on the book stays put.
   const kept = book.tags.filter((t) => !(normTag(t) in MOOD_SCORES))
@@ -214,6 +237,7 @@ function diffMoods(book: Book, entry: HcEntry): FieldDiff | undefined {
     adLabel: ad.length ? ad.join(', ') : 'none',
     hcLabel: hcMoods.join(', '),
     patch: { tags: [...kept, ...hcMoods] },
+    ...(auto ? { auto: true } : {}),
   }
 }
 
