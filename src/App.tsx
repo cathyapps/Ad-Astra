@@ -8,6 +8,7 @@ import { CapacityWarningModal } from '@/features/stars/CapacityWarningModal'
 import { useAuthState } from '@/features/auth/AuthContext'
 import { ReadingTimerProvider } from '@/features/library/ReadingTimerProvider'
 import { StoppedSessionSheet } from '@/features/library/StoppedSessionSheet'
+import { HardcoverReview } from '@/features/library/HardcoverReview'
 
 type Tab = 'dashboard' | 'universe' | 'bucketlist' | 'library'
 
@@ -23,6 +24,7 @@ export default function App() {
   const auth = useAuthState()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [profileOpen, setProfileOpen] = useState(false)
+  const [hardcoverOpen, setHardcoverOpen] = useState(false)
 
   if (adAstra.loading) {
     return (
@@ -67,6 +69,17 @@ export default function App() {
                       <p className="text-[10px] uppercase tracking-wide text-moon-dim">Signed in as</p>
                       <p className="text-sm text-moon break-all">{auth.email}</p>
                     </div>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full text-left text-sm border border-hairline rounded-lg px-3 py-2 text-moon hover:bg-card-hover transition-colors"
+                      onClick={() => {
+                        setProfileOpen(false)
+                        setHardcoverOpen(true)
+                      }}
+                    >
+                      Compare with Hardcover
+                    </button>
                     <button
                       type="button"
                       role="menuitem"
@@ -175,6 +188,14 @@ export default function App() {
         onCreateReadingLog={adAstra.createReadingLog}
         onUpdateBook={adAstra.updateBook}
       />
+
+      {hardcoverOpen && (
+        <HardcoverReview
+          books={adAstra.books}
+          onApplyPatches={adAstra.updateBooksBulk}
+          onClose={() => setHardcoverOpen(false)}
+        />
+      )}
 
       {adAstra.capacityPrompt && (
         <CapacityWarningModal

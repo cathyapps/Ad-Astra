@@ -289,6 +289,10 @@ export function bookFromRow(row: Record<string, unknown>): Book {
     subjects: (row.subjects as string[]) ?? undefined,
     openLibraryWorkKey: (row.open_library_work_key as string) ?? undefined,
     externalMetadata: (row.external_metadata as Record<string, unknown>) ?? undefined,
+    hardcoverBookId: (row.hardcover_book_id as number) ?? undefined,
+    hardcoverEditionId: (row.hardcover_edition_id as number) ?? undefined,
+    hardcoverUserBookId: (row.hardcover_user_book_id as number) ?? undefined,
+    hardcoverReviewedAt: (row.hardcover_reviewed_at as string) ?? undefined,
     relatedStarIds: (row.related_star_ids as string[]) ?? [],
     startedAt: (row.started_at as string) ?? undefined,
     createdAt: row.created_at as string,
@@ -324,6 +328,10 @@ export function bookToRow(input: Partial<Book>, userId: string): Record<string, 
   if (input.subjects !== undefined) row.subjects = input.subjects
   if (input.openLibraryWorkKey !== undefined) row.open_library_work_key = input.openLibraryWorkKey
   if (input.externalMetadata !== undefined) row.external_metadata = input.externalMetadata
+  if (input.hardcoverBookId !== undefined) row.hardcover_book_id = input.hardcoverBookId
+  if (input.hardcoverEditionId !== undefined) row.hardcover_edition_id = input.hardcoverEditionId
+  if (input.hardcoverUserBookId !== undefined) row.hardcover_user_book_id = input.hardcoverUserBookId
+  if (input.hardcoverReviewedAt !== undefined) row.hardcover_reviewed_at = input.hardcoverReviewedAt
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
   if (input.startedAt !== undefined) row.started_at = input.startedAt
   if (input.completedAt !== undefined) row.completed_at = input.completedAt

@@ -82,6 +82,13 @@ export interface Book {
   openLibraryWorkKey?: string
   externalMetadata?: Record<string, unknown>
 
+  // Link to the matching Hardcover entry (set when the book is reviewed or
+  // linked in the Hardcover comparison; used by the Hardcover sync).
+  hardcoverBookId?: number
+  hardcoverEditionId?: number
+  hardcoverUserBookId?: number
+  hardcoverReviewedAt?: string
+
   relatedStarIds: string[]
 
   startedAt?: string

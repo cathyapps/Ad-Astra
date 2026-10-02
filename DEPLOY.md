@@ -82,3 +82,17 @@ Once deployed over HTTPS (Vercel gives you this automatically):
 
 The manifest and icons are already wired up (`vite.config.ts` →
 `VitePWA`) — nothing more to configure.
+
+## Hardcover link
+
+The Hardcover features run through a server function (`api/hardcover.ts`)
+so your Hardcover token never reaches the browser. In Vercel → Settings →
+Environment Variables add (no `VITE_` prefix), then redeploy:
+
+- `HARDCOVER_API_TOKEN` — from hardcover.app/settings (the "Bearer " part is optional).
+- `HARDCOVER_ALLOWED_EMAIL` — your Ad Astra login email. Only that account
+  can use the function, which matters because the token can act as your
+  Hardcover account.
+
+Also consider turning sign-ups off in Supabase (Authentication → Sign In /
+Providers) if you don't need other people to create accounts.
