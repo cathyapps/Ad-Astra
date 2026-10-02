@@ -1,3 +1,4 @@
+import { appToday } from '@/lib/appDate'
 import { v4 as uuid } from 'uuid'
 import type { AppSettings, Constellation, Star, Task } from '@/types'
 import type { Book, ReadingLog } from '@/types/library'
@@ -321,7 +322,7 @@ export class LocalStore implements AdAstraStore {
     const session: ViewingSession = {
       id: uuid(),
       watchableId: input.watchableId,
-      date: input.date ?? now().slice(0, 10),
+      date: input.date ?? appToday(),
       minutes: input.minutes,
       notes: input.notes,
       rating: input.rating,
@@ -436,7 +437,7 @@ export class LocalStore implements AdAstraStore {
     const log: ReadingLog = {
       id: uuid(),
       bookId: input.bookId,
-      date: input.date ?? now().slice(0, 10),
+      date: input.date ?? appToday(),
       currentPage: input.currentPage,
       currentTimeMinutes: input.currentTimeMinutes,
       percentComplete: input.percentComplete,
@@ -535,6 +536,8 @@ export class LocalStore implements AdAstraStore {
       chartType: input.chartType,
       xAxis: input.xAxis,
       yAxis: input.yAxis,
+      yAxis2: input.yAxis2,
+      groupAxis: input.groupAxis,
       sortIndex: input.sortIndex ?? all.filter((c) => c.viewName === viewName).length,
       createdAt: now(),
       updatedAt: now(),

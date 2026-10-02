@@ -1,15 +1,13 @@
 import type { Book, ReadingLog } from '@/types/library'
+import { appDayKey, appToday } from './appDate'
 
 // All dates here are handled as "YYYY-MM-DD" keys (never through the
 // local-timezone Date parser), so a log dated the 5th always lands on the
 // 5th regardless of the device's timezone.
 
-export const dayKey = (iso: string): string => iso.slice(0, 10)
+export const dayKey = (iso: string): string => appDayKey(iso)
 
-export function todayKey(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+export const todayKey = (): string => appToday()
 
 export function keyToUtcMs(key: string): number {
   const [y, m, d] = key.split('-').map(Number)

@@ -42,7 +42,7 @@ const NONFICTION_GENRES = new Set(['History', 'Memoir', 'Biography', 'Self-Help'
 
 /** true = non-fiction, false = fiction, undefined = can't tell. An
  *  explicit "fiction"/"nonfiction" tag wins over what the genre implies. */
-function isNonFiction(book: Book): boolean | undefined {
+export function isNonFiction(book: Book): boolean | undefined {
   if (hasTag(book, 'nonfiction') || hasTag(book, 'non-fiction')) return true
   if (hasTag(book, 'fiction')) return false
   if (!book.genre) return undefined

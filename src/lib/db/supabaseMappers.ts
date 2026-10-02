@@ -402,6 +402,8 @@ export function chartConfigFromRow(row: Record<string, unknown>): ChartConfig {
     chartType: row.chart_type as ChartConfig['chartType'],
     xAxis: row.x_axis as ChartConfig['xAxis'],
     yAxis: row.y_axis as ChartConfig['yAxis'],
+    yAxis2: (row.y_axis_2 as ChartConfig['yAxis2']) ?? undefined,
+    groupAxis: (row.group_axis as ChartConfig['groupAxis']) ?? undefined,
     sortIndex: (row.sort_index as number) ?? 0,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
@@ -415,6 +417,9 @@ export function chartConfigToRow(input: Partial<ChartConfig>, userId: string): R
   if (input.chartType !== undefined) row.chart_type = input.chartType
   if (input.xAxis !== undefined) row.x_axis = input.xAxis
   if (input.yAxis !== undefined) row.y_axis = input.yAxis
+  // null (not undefined) so switching away from a dual / heatmap chart clears them
+  if ('yAxis2' in input) row.y_axis_2 = input.yAxis2 ?? null
+  if ('groupAxis' in input) row.group_axis = input.groupAxis ?? null
   if (input.sortIndex !== undefined) row.sort_index = input.sortIndex
   return row
 }

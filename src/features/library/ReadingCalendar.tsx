@@ -79,7 +79,7 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
   const grid = useMemo(() => buildMonthGrid(view.year, view.month), [view])
   const daysReadThisMonth = useMemo(() => {
     const prefix = `${view.year}-${String(view.month + 1).padStart(2, '0')}`
-    return Array.from(dayLogs.keys()).filter((k: string) => k.startsWith(prefix)).length
+    return Array.from(dayLogs.keys()).filter((k) => String(k).startsWith(prefix)).length
   }, [dayLogs, view])
 
   function shiftMonth(delta: number) {

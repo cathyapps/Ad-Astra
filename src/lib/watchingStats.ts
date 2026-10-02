@@ -1,27 +1,22 @@
 import type { ViewingSession } from '@/types/watching'
+import { addDays, appDayKey, appToday } from './appDate'
 
-export function watchedCompletedInRange(
-  sessions: ViewingSession[],
-  start: Date,
-  end: Date,
-): number {
+/** start / end are app-day keys (YYYY-MM-DD, inclusive). */
+export function watchedCompletedInRange(sessions: ViewingSession[], start: string, end: string): number {
   return sessions.filter((s) => {
     if (s.completionStatus !== 'completed') return false
-    const d = new Date(s.date)
-    return d >= start && d <= end
+    const key = appDayKey(s.date)
+    return key >= start && key <= end
   }).length
 }
 
-export function currentWatchStreakDays(
-  sessions: ViewingSession[],
-  today: Date = new Date(),
-): number {
-  const days = new Set(sessions.map((s) => s.date.slice(0, 10)))
+export function currentWatchStreakDays(sessions: ViewingSession[], today: Date = new Date()): number {
+  const days = new Set(sessions.map((s) => appDayKey(s.date)))
   let streak = 0
-  const cursor = new Date(today)
-  while (days.has(cursor.toISOString().slice(0, 10))) {
+  let cursor = appToday(today)
+  while (days.has(cursor)) {
     streak += 1
-    cursor.setDate(cursor.getDate() - 1)
+    cursor = addDays(cursor, -1)
   }
   return streak
 }

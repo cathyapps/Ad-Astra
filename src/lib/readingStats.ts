@@ -1,3 +1,4 @@
+import { addDays, appDayKey, appToday, weekdayOf } from './appDate'
 import type { Book, ReadingLog } from '@/types/library'
 
 // --- Core conversion: turn whatever progress marker was logged (current
@@ -57,12 +58,13 @@ export function deriveLogs(books: Book[], logs: ReadingLog[]): DerivedLog[] {
   return result
 }
 
-function inRange(dateStr: string, start: Date, end: Date): boolean {
-  const d = new Date(dateStr)
-  return d >= start && d <= end
+/** start / end are app-day keys (YYYY-MM-DD, inclusive). */
+function inRange(dateStr: string, start: string, end: string): boolean {
+  const key = appDayKey(dateStr)
+  return key >= start && key <= end
 }
 
-export function pagesReadInRange(derived: DerivedLog[], start: Date, end: Date): number {
+export function pagesReadInRange(derived: DerivedLog[], start: string, end: string): number {
   return derived
     .filter((d) => inRange(d.log.date, start, end))
     .reduce((sum, d) => sum + (d.pagesRead ?? 0), 0)
@@ -70,20 +72,20 @@ export function pagesReadInRange(derived: DerivedLog[], start: Date, end: Date):
 
 /** Books whose completedAt falls in range — status/rating now live on the
  *  book itself (Phase 6), not on a per-log completion flag. */
-export function booksCompletedInRange(books: Book[], start: Date, end: Date): number {
+export function booksCompletedInRange(books: Book[], start: string, end: string): number {
   return books.filter(
     (b) => b.readStatus === 'read' && b.completedAt && inRange(b.completedAt, start, end),
   ).length
 }
 
-/** Consecutive days up to today with at least one reading log entry. */
+/** Consecutive app days up to today with at least one reading log entry. */
 export function currentStreakDays(logs: ReadingLog[], today: Date = new Date()): number {
-  const days = new Set(logs.map((l) => l.date.slice(0, 10)))
+  const days = new Set(logs.map((l) => appDayKey(l.date)))
   let streak = 0
-  const cursor = new Date(today)
-  while (days.has(cursor.toISOString().slice(0, 10))) {
+  let cursor = appToday(today)
+  while (days.has(cursor)) {
     streak += 1
-    cursor.setDate(cursor.getDate() - 1)
+    cursor = addDays(cursor, -1)
   }
   return streak
 }
@@ -97,14 +99,12 @@ export interface DayBucket {
 
 /** Pages read per day for the last N days (including empty days). */
 export function pagesByDay(derived: DerivedLog[], days = 14): DayBucket[] {
-  const today = new Date()
+  const today = appToday()
   const buckets: DayBucket[] = []
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const key = d.toISOString().slice(0, 10)
+    const key = addDays(today, -i)
     const pages = derived
-      .filter((x) => x.log.date.slice(0, 10) === key)
+      .filter((x) => appDayKey(x.log.date) === key)
       .reduce((sum, x) => sum + (x.pagesRead ?? 0), 0)
     buckets.push({ label: key.slice(5), pages })
   }
@@ -112,21 +112,23 @@ export function pagesByDay(derived: DerivedLog[], days = 14): DayBucket[] {
 }
 
 /** Pages read per month for the current year. */
-export function pagesByMonth(derived: DerivedLog[], year = new Date().getFullYear()): DayBucket[] {
+export function pagesByMonth(derived: DerivedLog[], year = Number(appToday().slice(0, 4))): DayBucket[] {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   return months.map((label, i) => {
-    const start = new Date(year, i, 1)
-    const end = new Date(year, i + 1, 0, 23, 59, 59)
+    const mm = String(i + 1).padStart(2, '0')
+    const start = `${year}-${mm}-01`
+    const end = `${year}-${mm}-${String(new Date(Date.UTC(year, i + 1, 0)).getUTCDate()).padStart(2, '0')}`
     return { label, pages: pagesReadInRange(derived, start, end) }
   })
 }
 
 /** Books completed per month for the current year. */
-export function booksByMonth(books: Book[], year = new Date().getFullYear()): DayBucket[] {
+export function booksByMonth(books: Book[], year = Number(appToday().slice(0, 4))): DayBucket[] {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   return months.map((label, i) => {
-    const start = new Date(year, i, 1)
-    const end = new Date(year, i + 1, 0, 23, 59, 59)
+    const mm = String(i + 1).padStart(2, '0')
+    const start = `${year}-${mm}-01`
+    const end = `${year}-${mm}-${String(new Date(Date.UTC(year, i + 1, 0)).getUTCDate()).padStart(2, '0')}`
     return { label, pages: booksCompletedInRange(books, start, end) }
   })
 }
@@ -137,7 +139,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export function dayOfWeekFrequency(logs: ReadingLog[]): DayBucket[] {
   const counts = new Array(7).fill(0)
   for (const l of logs) {
-    counts[new Date(l.date).getDay()] += 1
+    counts[weekdayOf(appDayKey(l.date))] += 1
   }
   return DAY_NAMES.map((label, i) => ({ label, pages: counts[i] }))
 }

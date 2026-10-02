@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
-import type { ChartConfig, ChartType, MetricKey, MetricsTimeframe } from '@/types/charts'
+import type { ChartConfig, ChartInput, MetricsTimeframe } from '@/types/charts'
 import { InProgressShelf } from './InProgressShelf'
 import { LibraryShelf } from './LibraryShelf'
 import { Metrics } from './Metrics'
@@ -28,7 +28,7 @@ interface Props {
   onDeleteBook: (id: string) => void
   onCreateReadingLog: (input: Partial<ReadingLog> & { bookId: string }) => void
   onChangeTimeframe: (t: MetricsTimeframe) => void
-  onCreateChart: (input: { title: string; chartType: ChartType; xAxis: MetricKey; yAxis: MetricKey }) => void
+  onCreateChart: (input: ChartInput) => void
   onUpdateChart: (id: string, patch: Partial<ChartConfig>) => void
   onDeleteChart: (id: string) => void
 }
@@ -115,6 +115,9 @@ export function Library({
           onCreateChart={onCreateChart}
           onUpdateChart={onUpdateChart}
           onDeleteChart={onDeleteChart}
+          onUpdateBook={onUpdateBook}
+          onDeleteBook={onDeleteBook}
+          onCreateReadingLog={onCreateReadingLog}
         />
       )}
     </div>

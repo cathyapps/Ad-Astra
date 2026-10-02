@@ -1,3 +1,4 @@
+import { appDayKey, appToday } from '@/lib/appDate'
 import { useState } from 'react'
 import type { Book } from '@/types/library'
 import { BottomSheet } from '@/features/shared/BottomSheet'
@@ -58,14 +59,15 @@ export function ReadingGoalCard({ books, goals, onChangeGoals }: Props) {
   const [booksInput, setBooksInput] = useState('')
   const [pagesInput, setPagesInput] = useState('')
 
-  const now = new Date()
-  const year = now.getFullYear()
-  const startOfYear = new Date(year, 0, 1).getTime()
-  const endOfYear = new Date(year + 1, 0, 1).getTime()
-  const fractionOfYear = (now.getTime() - startOfYear) / (endOfYear - startOfYear)
+  // Year and progress through it follow the app day (Eastern, 3 AM rollover).
+  const today = appToday()
+  const year = Number(today.slice(0, 4))
+  const startOfYear = Date.parse(`${year}-01-01T00:00:00Z`)
+  const endOfYear = Date.parse(`${year + 1}-01-01T00:00:00Z`)
+  const fractionOfYear = (Date.parse(`${today}T12:00:00Z`) - startOfYear) / (endOfYear - startOfYear)
 
   const finished = books.filter(
-    (b) => b.readStatus === 'read' && b.completedAt && new Date(b.completedAt).getFullYear() === year,
+    (b) => b.readStatus === 'read' && b.completedAt && Number(appDayKey(b.completedAt).slice(0, 4)) === year,
   )
   const booksDone = finished.length
   const pagesDone = finished.reduce((sum, b) => sum + (b.totalPages ?? 0), 0)

@@ -1,3 +1,4 @@
+import { appToday } from '@/lib/appDate'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AppSettings, Constellation, Star, Task } from '@/types'
 import type { Book, ReadingLog } from '@/types/library'
@@ -290,7 +291,7 @@ export class SupabaseStore implements AdAstraStore {
   ): Promise<ViewingSession> {
     const { data, error } = await this.client
       .from('viewing_sessions')
-      .insert(viewingSessionToRow(input, this.userId))
+      .insert(viewingSessionToRow({ ...input, date: input.date ?? appToday() }, this.userId))
       .select()
       .single()
     if (error) throw error
@@ -381,7 +382,7 @@ export class SupabaseStore implements AdAstraStore {
   async createReadingLog(input: Partial<ReadingLog> & { bookId: string }): Promise<ReadingLog> {
     const { data, error } = await this.client
       .from('reading_logs')
-      .insert(readingLogToRow(input, this.userId))
+      .insert(readingLogToRow({ ...input, date: input.date ?? appToday() }, this.userId))
       .select()
       .single()
     if (error) throw error

@@ -33,48 +33,56 @@ export function fullCoverHeightPct(config: ShelfPhotoConfig, slot: ShelfSlot): n
 // rendered size, since the container's aspect-ratio always matches the
 // photo's true proportions.
 
-export const MAIN_SHELF: ShelfPhotoConfig = {
-  imageSrc: '/library/main-shelf.jpg',
-  aspectRatio: 2043 / 770,
-  floorFromBottomPct: 16.8,
-  slots: [
-    { left: 22, width: 19.3333 },
-    { left: 44.3333, width: 19.3333 },
-    { left: 66.6667, width: 19.3333 },
-  ],
-}
+// All main-shelf photos are cut from the same generated artwork and share
+// one size, one shelf height and one "feet" line, so rows stack seamlessly
+// and covers look identical whichever photo is behind them.
+//   - Photos are 1600x616 (aspect ~2.597), the same for every row.
+//   - Book feet (the built-in end books' base, and so the covers') sit
+//     20.5% up from the bottom edge: on the shelf surface, set back from
+//     the front lip rather than hanging over it.
+//   - Slot width gives covers the same height as the built-in end books.
+const MAIN_SHELF_ASPECT = 1600 / 616
+const MAIN_SHELF_FLOOR_PCT = 20.5
+const MAIN_SLOT_WIDTH = 17.45
 
-/** Three evenly spaced main-shelf slots starting at `left`, same size and
- *  gap as MAIN_SHELF so covers look identical whichever photo is behind. */
-const mainSlots = (left: number): ShelfSlot[] => [
-  { left, width: 19.3333 },
-  { left: left + 22.3333, width: 19.3333 },
-  { left: left + 44.6667, width: 19.3333 },
+const mainSlots = (left: number, gap = 2.41): ShelfSlot[] => [
+  { left, width: MAIN_SLOT_WIDTH },
+  { left: left + MAIN_SLOT_WIDTH + gap, width: MAIN_SLOT_WIDTH },
+  { left: left + 2 * (MAIN_SLOT_WIDTH + gap), width: MAIN_SLOT_WIDTH },
 ]
 
-/** Same photo size as MAIN_SHELF, no lamp — bookends on both sides. */
-export const MAIN_SHELF_NO_LAMP: ShelfPhotoConfig = {
-  imageSrc: '/library/main-shelf-nolamp.jpg',
-  aspectRatio: 2043 / 770,
-  floorFromBottomPct: 16.8,
-  slots: mainSlots(19.5),
-}
+const mainShelf = (imageSrc: string, left: number): ShelfPhotoConfig => ({
+  imageSrc,
+  aspectRatio: MAIN_SHELF_ASPECT,
+  floorFromBottomPct: MAIN_SHELF_FLOOR_PCT,
+  slots: mainSlots(left),
+})
 
-/** MAIN_SHELF mirrored horizontally, so the lamp is on the right. */
-export const MAIN_SHELF_LAMP_RIGHT: ShelfPhotoConfig = {
-  imageSrc: '/library/main-shelf-lamp-right.jpg',
-  aspectRatio: 2043 / 770,
-  floorFromBottomPct: 16.8,
-  slots: mainSlots(16),
-}
+/** Lamp on the left. */
+export const MAIN_SHELF = mainShelf('/library/main-shelf.jpg', 23.91)
 
-/** Shelf photo rotation for the main library: lamp left, no lamp, lamp
- *  right, no lamp, then repeat — so stacked shelves don't all look alike. */
+/** Lamp mirrored to the right. */
+export const MAIN_SHELF_LAMP_RIGHT = mainShelf('/library/main-shelf-lamp-right.jpg', 18.92)
+
+/** Four no-lamp bays (bookends on both sides), each with different books. */
+const NO_LAMP_BAYS: ShelfPhotoConfig[] = [
+  mainShelf('/library/main-shelf-nolamp.jpg', 22.91),
+  mainShelf('/library/main-shelf-nolamp-2.jpg', 22.91),
+  mainShelf('/library/main-shelf-nolamp-3.jpg', 22.91),
+  mainShelf('/library/main-shelf-nolamp-4.jpg', 22.91),
+]
+export const MAIN_SHELF_NO_LAMP = NO_LAMP_BAYS[0]
+
+/** Shelf photo rotation for the main library: lamp left, bay 1, bay 2,
+ *  lamp right, bay 1, bay 2, then repeat. (Bays 3 and 4 are cut and
+ *  ready if you want more variety later.) */
 const MAIN_SHELF_ROTATION: ShelfPhotoConfig[] = [
   MAIN_SHELF,
-  MAIN_SHELF_NO_LAMP,
+  NO_LAMP_BAYS[0],
+  NO_LAMP_BAYS[1],
   MAIN_SHELF_LAMP_RIGHT,
-  MAIN_SHELF_NO_LAMP,
+  NO_LAMP_BAYS[0],
+  NO_LAMP_BAYS[1],
 ]
 
 export function mainShelfForRow(rowIndex: number): ShelfPhotoConfig {
