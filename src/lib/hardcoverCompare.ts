@@ -305,7 +305,7 @@ export function altPatch(o: HcEditionOption): Partial<Book> {
 /** The link fields saved with a row so the later sync knows which Hardcover entry is which.
  *  The Hardcover edition is only linked when it is the edition the book ends up on: either
  *  the ISBNs already agreed (no difference raised) or the person picked Hardcover's. */
-export function linkPatch(row: CompareRow, picks: Partial<Record<FieldKey, 'ad' | 'hc'>>): Partial<Book> {
+export function linkPatch(row: CompareRow, picks: Partial<Record<FieldKey, 'ad' | 'hc' | 'alt'>>): Partial<Book> {
   const isbnDiff = row.diffs.find((d) => d.field === 'isbn')
   const editionIsSettled = !isbnDiff || picks.isbn === 'hc'
   return {
