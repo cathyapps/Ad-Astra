@@ -35,6 +35,8 @@ export interface FieldDiff {
   auto?: boolean
   /** ISBN rows only: the code currently on the Ad Astra book, so its edition can be looked up. */
   adCode?: string
+  /** ISBN rows only: set when Hardcover's chosen edition is clearly the wrong kind (e.g. print vs audio). */
+  formatWarning?: string
 }
 
 export interface CompareRow {
@@ -186,23 +188,47 @@ function diffIsbn(book: Book, entry: HcEntry): FieldDiff | undefined {
   const hcCodes = [toIsbn13(entry.isbn13), toIsbn13(entry.isbn10), entry.asin?.toUpperCase()].filter(
     (c): c is string => !!c,
   )
-  if (hcCodes.length === 0) return undefined
   const adCode = editionCode(book.isbn)
+  // Same code on both sides = same edition, nothing to resolve.
   if (adCode && hcCodes.includes(adCode)) return undefined
-  const hcShown = hcCodes[0]
-  const detail = editionDetail({
+
+  const fmt = {
     readingFormat: entry.readingFormat,
     physicalFormat: entry.physicalFormat,
     editionFormat: entry.editionFormat,
     pages: entry.editionPages,
     audioSeconds: entry.audioSeconds,
-  })
+  }
+  const detail = editionDetail(fmt)
+  const hasEdition = entry.editionId != null || !!detail
+  const hcShown = hcCodes[0]
+  // Hardcover may have no edition selected, or one with no ISBN/ASIN. The two can't be
+  // matched then, so the book is still raised: that's exactly when another edition is worth looking for.
+  const hcLabel = hcShown
+    ? detail
+      ? `${hcShown} · ${detail}`
+      : hcShown
+    : hasEdition
+      ? `no ISBN or ASIN on Hardcover${detail ? ` · ${detail}` : ''}`
+      : 'no edition selected on Hardcover'
+
+  const kind = editionKind(fmt)
+  const wrongFormat =
+    kind !== 'unknown' && !matchesBookFormat(book.format, kind)
+      ? `Hardcover's edition looks like ${kind === 'ebook' ? 'an ebook' : kind === 'audio' ? 'an audiobook' : 'a print edition'}, but this book is ${book.format === 'kindle' ? 'an ebook' : book.format === 'audio' ? 'an audiobook' : 'print'} in Ad Astra`
+      : undefined
+
   return {
     field: 'isbn',
     adLabel: book.isbn ? book.isbn : 'none on file',
-    hcLabel: detail ? `${hcShown} · ${detail}` : hcShown,
+    hcLabel,
     adCode: adCode ?? book.isbn?.trim(),
-    patch: { isbn: hcShown, ...(entry.editionId != null ? { hardcoverEditionId: entry.editionId } : {}) },
+    ...(wrongFormat ? { formatWarning: wrongFormat } : {}),
+    // Without a code on Hardcover's side, "use Hardcover's" can only link its edition; the ISBN stays as is.
+    patch: {
+      ...(hcShown ? { isbn: hcShown } : {}),
+      ...(entry.editionId != null ? { hardcoverEditionId: entry.editionId } : {}),
+    },
   }
 }
 

@@ -374,6 +374,7 @@ function ReviewCard({
               {optionCode(alt) ?? 'no ISBN or ASIN on Hardcover (links the edition only)'} · {alt.detail || 'format unknown'}
             </button>
           )}
+          {d.field === 'isbn' && d.formatWarning && <p className="text-[11px] text-gold">{d.formatWarning}</p>}
           {d.field === 'isbn' && <EditionFinder row={row} onChoose={onChooseEdition} />}
         </div>
       ))}
