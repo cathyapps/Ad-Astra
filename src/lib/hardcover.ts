@@ -16,7 +16,7 @@ export interface HcEntry {
   editionId?: number
   title: string
   authors: string[]
-  /** Hardcover status: 1 want to read, 2 reading, 3 read, 4 did not finish, 5 paused. */
+  /** Hardcover status: 1 want to read, 2 reading, 3 read, 4 paused, 5 did not finish. */
   statusId: number
   rating?: number
   isbn13?: string
@@ -36,8 +36,8 @@ export const HC_STATUS_LABELS: Record<number, string> = {
   1: 'Want to read',
   2: 'Reading',
   3: 'Read',
-  4: 'Did not finish',
-  5: 'Paused',
+  4: 'Paused',
+  5: 'Did not finish',
 }
 
 type Json = Record<string, unknown>
@@ -174,6 +174,27 @@ export async function fetchEditionsByCode(codes: string[]): Promise<Map<string, 
     }
   }
   return out
+}
+
+/** One call to the /api/hardcover function (which holds the secret token). Throws with a readable message. */
+export async function callHardcover<T = Json>(body: Json): Promise<T> {
+  if (!supabase) throw new Error('Hardcover needs the Supabase (signed-in) version of the app.')
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Not signed in.')
+  const res = await fetch('/api/hardcover', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  let json: (Json & { ok?: boolean; error?: string }) | undefined
+  try {
+    json = await res.json()
+  } catch {
+    throw new Error(`The Hardcover function didn't answer (HTTP ${res.status}).`)
+  }
+  if (!res.ok || !json?.ok) throw new Error(json?.error ?? `Hardcover request failed (HTTP ${res.status})`)
+  return json as T
 }
 
 /** One edition of a book on Hardcover, as offered in the "find another edition" picker. */

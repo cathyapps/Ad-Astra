@@ -32,8 +32,10 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
   // in directly. Kept separately so a manual edit to, say, the title
   // doesn't wipe out the cover/ISBN/etc. that came with the match.
   const [matched, setMatched] = useState<Partial<Book> | null>(
-    initial?.openLibraryWorkKey
+    initial?.openLibraryWorkKey || initial?.hardcoverBookId
       ? {
+          hardcoverBookId: initial.hardcoverBookId,
+          hardcoverEditionId: initial.hardcoverEditionId,
           isbn: initial.isbn,
           coverUrl: initial.coverUrl,
           publisher: initial.publisher,
@@ -75,11 +77,12 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
             className="text-xs text-cosmic hover:text-moon transition-colors"
             onClick={() => setShowSearch((v) => !v)}
           >
-            {showSearch ? 'Enter details manually instead' : 'Search Open Library instead'}
+            {showSearch ? 'Enter details manually instead' : 'Search for the book instead'}
           </button>
           {showSearch && (
             <div className="mt-2">
               <BookSearch
+                format={format}
                 onPick={(draft) => {
                   setTitle(draft.title)
                   if (draft.author) setAuthor(draft.author)
@@ -88,7 +91,11 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
                   if (draft.genre && SHELF_GENRE_LIST.includes(draft.genre)) setGenre(draft.genre)
                   if (draft.totalPages != null) setTotalPages(String(draft.totalPages))
                   if (draft.coverUrl) setCoverUrlInput(draft.coverUrl)
+                  if (draft.totalMinutes != null && !totalMinutes) setTotalMinutes(String(draft.totalMinutes))
                   setMatched({
+                    hardcoverBookId: draft.hardcoverBookId,
+                    hardcoverEditionId: draft.hardcoverEditionId,
+                    tags: draft.tags && draft.tags.length > 0 ? draft.tags : undefined,
                     isbn: draft.isbn,
                     coverUrl: draft.coverUrl,
                     publisher: draft.publisher,
@@ -105,13 +112,14 @@ export function BookForm({ initial, onSave, onCancel }: Props) {
         </div>
       )}
 
-      {matched?.openLibraryWorkKey && (
+      {(matched?.openLibraryWorkKey || matched?.hardcoverBookId) && (
         <div className="flex items-center gap-2.5 border border-hairline rounded-lg px-2.5 py-2 bg-night/40">
           {matched.coverUrl ? (
             <img src={matched.coverUrl} alt="" className="w-8 h-11 object-cover rounded shrink-0" />
           ) : null}
           <div className="text-xs text-moon-dim flex-1">
-            Matched via Open Library
+            {matched.hardcoverBookId ? 'Matched via Hardcover' : 'Matched via Open Library'}
+            {matched.tags && matched.tags.length > 0 ? ` · ${matched.tags.length} moods` : ''}
             {matched.publisher ? ` · ${matched.publisher}` : ''}
             {matched.publishYear ? ` · ${matched.publishYear}` : ''}
           </div>

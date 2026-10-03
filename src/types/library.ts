@@ -76,6 +76,9 @@ export interface Book {
   // yet, since pulling it once now is free and re-fetching later isn't.
   isbn?: string
   coverUrl?: string
+  // Where the cover originally came from, once cover_url points at the
+  // thumbnail saved in Supabase Storage.
+  coverOriginalUrl?: string
   publisher?: string
   publishYear?: number
   subjects?: string[]

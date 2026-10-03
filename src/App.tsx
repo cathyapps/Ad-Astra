@@ -9,6 +9,8 @@ import { useAuthState } from '@/features/auth/AuthContext'
 import { ReadingTimerProvider } from '@/features/library/ReadingTimerProvider'
 import { StoppedSessionSheet } from '@/features/library/StoppedSessionSheet'
 import { HardcoverReview } from '@/features/library/HardcoverReview'
+import { HardcoverSync } from '@/features/library/HardcoverSync'
+import { useHardcoverSync } from '@/hooks/useHardcoverSync'
 
 type Tab = 'dashboard' | 'universe' | 'bucketlist' | 'library'
 
@@ -22,9 +24,11 @@ const TABS: { id: Tab; label: string }[] = [
 export default function App() {
   const adAstra = useAdAstra()
   const auth = useAuthState()
+  const hcSync = useHardcoverSync(adAstra.books, adAstra.readingLogs, adAstra.updateBooksBulk)
   const [tab, setTab] = useState<Tab>('dashboard')
   const [profileOpen, setProfileOpen] = useState(false)
   const [hardcoverOpen, setHardcoverOpen] = useState(false)
+  const [hardcoverSyncOpen, setHardcoverSyncOpen] = useState(false)
 
   if (adAstra.loading) {
     return (
@@ -79,6 +83,20 @@ export default function App() {
                       }}
                     >
                       Compare with Hardcover
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full text-left text-sm border border-hairline rounded-lg px-3 py-2 text-moon hover:bg-card-hover transition-colors"
+                      onClick={() => {
+                        setProfileOpen(false)
+                        setHardcoverSyncOpen(true)
+                      }}
+                    >
+                      Hardcover sync
+                      {hcSync.counts.pending + hcSync.counts.failed + hcSync.counts.needsLink > 0
+                        ? ` (${hcSync.counts.pending + hcSync.counts.failed + hcSync.counts.needsLink} waiting)`
+                        : ''}
                     </button>
                     <button
                       type="button"
@@ -195,6 +213,10 @@ export default function App() {
           onApplyPatches={adAstra.updateBooksBulk}
           onClose={() => setHardcoverOpen(false)}
         />
+      )}
+
+      {hardcoverSyncOpen && (
+        <HardcoverSync sync={hcSync} books={adAstra.books} onClose={() => setHardcoverSyncOpen(false)} />
       )}
 
       {adAstra.capacityPrompt && (

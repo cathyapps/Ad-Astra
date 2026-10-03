@@ -96,3 +96,14 @@ Environment Variables add (no `VITE_` prefix), then redeploy:
 
 Also consider turning sign-ups off in Supabase (Authentication → Sign In /
 Providers) if you don't need other people to create accounts.
+
+## Hardcover sync and cover thumbnails (migration 0014)
+
+Run `supabase/migrations/0014_hardcover_sync_and_covers.sql` (already applied
+to the live project when this was delivered). It adds a sync queue table with
+database triggers, a `cover_original_url` column, and a public `covers`
+Storage bucket that only you can write to. No new environment variables are
+needed beyond `HARDCOVER_API_TOKEN` and `HARDCOVER_ALLOWED_EMAIL`.
+
+Use profile icon → "Hardcover sync" to see what is waiting or failed, run a
+sync, queue every non-TBR book, and save cover thumbnails.

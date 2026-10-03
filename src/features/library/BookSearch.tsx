@@ -1,9 +1,13 @@
 import { useState, type KeyboardEvent } from 'react'
-import type { Book } from '@/types/library'
+import type { Book, BookFormat } from '@/types/library'
 import { buildBookDraft, searchOpenLibrary, type OpenLibraryHit } from '@/lib/openLibrary'
+import { isSupabaseConfigured } from '@/lib/supabaseClient'
+import { buildHardcoverDraft, searchHardcoverBooks, type HcSearchHit } from '@/lib/hardcoverLookup'
 
 interface Props {
   onPick: (draft: Partial<Book> & { title: string }) => void
+  /** The format chosen in the form, so the matching Hardcover edition (e.g. the audiobook) is picked. */
+  format?: BookFormat
 }
 
 /** Lets you search Open Library and prefill the Add Book form instead
@@ -15,21 +19,61 @@ interface Props {
  *  <form>, and a nested <form> there caused the Search button to
  *  submit/reset the outer form instead of running a search. Enter-to-
  *  search is handled manually below instead. */
-export function BookSearch({ onPick }: Props) {
+export function BookSearch({ onPick, format = 'tbd' }: Props) {
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<OpenLibraryHit[]>([])
+  const [hcHits, setHcHits] = useState<HcSearchHit[]>([])
+  const [source, setSource] = useState<'hardcover' | 'openlibrary'>(isSupabaseConfigured ? 'hardcover' : 'openlibrary')
+  const [note, setNote] = useState('')
   const [status, setStatus] = useState<'idle' | 'searching' | 'error'>('idle')
   const [loadingKey, setLoadingKey] = useState<string | null>(null)
 
   async function runSearch() {
     if (!query.trim()) return
     setStatus('searching')
+    setNote('')
+    setHits([])
+    setHcHits([])
+    // Hardcover first; if it is unreachable or finds nothing, fall back to Open Library.
+    if (isSupabaseConfigured) {
+      try {
+        const found = await searchHardcoverBooks(query)
+        if (found.length > 0) {
+          setSource('hardcover')
+          setHcHits(found)
+          setStatus('idle')
+          return
+        }
+        setNote('Hardcover had no match; showing Open Library results.')
+      } catch (err) {
+        setNote(`Hardcover lookup unavailable (${err instanceof Error ? err.message : 'error'}); showing Open Library results.`)
+      }
+    }
+    setSource('openlibrary')
     try {
-      const results = await searchOpenLibrary(query)
-      setHits(results)
+      setHits(await searchOpenLibrary(query))
       setStatus('idle')
     } catch {
       setStatus('error')
+    }
+  }
+
+  async function pickHardcover(hit: HcSearchHit) {
+    setLoadingKey(`hc-${hit.bookId}`)
+    try {
+      onPick(await buildHardcoverDraft(hit.bookId, format))
+    } catch {
+      // Detail lookup failed: still hand back what the search result had, and link the book.
+      onPick({
+        title: hit.title,
+        author: hit.author,
+        totalPages: hit.pages,
+        coverUrl: hit.coverUrl,
+        publishYear: hit.year,
+        hardcoverBookId: hit.bookId,
+      })
+    } finally {
+      setLoadingKey(null)
     }
   }
 
@@ -68,7 +112,7 @@ export function BookSearch({ onPick }: Props) {
       <div className="flex gap-2">
         <input
           className="flex-1 border border-hairline bg-night rounded-lg px-3 py-2 text-sm text-moon placeholder:text-moon-dim/60"
-          placeholder="Search by title or author…"
+          placeholder="Search by title, author or ISBN…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
@@ -86,8 +130,38 @@ export function BookSearch({ onPick }: Props) {
       {status === 'error' && (
         <p className="text-xs text-red-400">Couldn't reach Open Library — you can still enter details below.</p>
       )}
+      {note && <p className="text-xs text-moon-dim">{note}</p>}
 
-      {hits.length > 0 && (
+      {source === 'hardcover' && hcHits.length > 0 && (
+        <div className="space-y-1.5 max-h-64 overflow-y-auto">
+          {hcHits.map((hit) => (
+            <button
+              key={hit.bookId}
+              type="button"
+              onClick={() => void pickHardcover(hit)}
+              disabled={loadingKey === `hc-${hit.bookId}`}
+              className="w-full flex items-center gap-2.5 border border-hairline rounded-lg px-2.5 py-2 text-left hover:bg-card-hover transition-colors disabled:opacity-60"
+            >
+              {hit.coverUrl ? (
+                <img src={hit.coverUrl} alt="" className="w-8 h-11 object-cover rounded shrink-0 bg-night" />
+              ) : (
+                <div className="w-8 h-11 rounded shrink-0 bg-night border border-hairline" />
+              )}
+              <div className="min-w-0">
+                <div className="text-sm text-moon truncate">{hit.title}</div>
+                <div className="text-xs text-moon-dim truncate">
+                  {hit.author ?? 'Unknown author'}
+                  {hit.year ? ` · ${hit.year}` : ''}
+                  {hit.pages ? ` · ${hit.pages} pp` : ''}
+                </div>
+              </div>
+              {loadingKey === `hc-${hit.bookId}` && <span className="text-xs text-moon-dim ml-auto">Loading…</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {source === 'openlibrary' && hits.length > 0 && (
         <div className="space-y-1.5 max-h-64 overflow-y-auto">
           {hits.map((hit) => (
             <button

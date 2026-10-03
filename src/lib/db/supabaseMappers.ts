@@ -284,6 +284,7 @@ export function bookFromRow(row: Record<string, unknown>): Book {
     isNextUp: (row.is_next_up as boolean) ?? false,
     isbn: (row.isbn as string) ?? undefined,
     coverUrl: (row.cover_url as string) ?? undefined,
+    coverOriginalUrl: (row.cover_original_url as string) ?? undefined,
     publisher: (row.publisher as string) ?? undefined,
     publishYear: (row.publish_year as number) ?? undefined,
     subjects: (row.subjects as string[]) ?? undefined,
@@ -323,6 +324,7 @@ export function bookToRow(input: Partial<Book>, userId: string): Record<string, 
   if (input.isNextUp !== undefined) row.is_next_up = input.isNextUp
   if (input.isbn !== undefined) row.isbn = input.isbn
   if (input.coverUrl !== undefined) row.cover_url = input.coverUrl
+  if (input.coverOriginalUrl !== undefined) row.cover_original_url = input.coverOriginalUrl
   if (input.publisher !== undefined) row.publisher = input.publisher
   if (input.publishYear !== undefined) row.publish_year = input.publishYear
   if (input.subjects !== undefined) row.subjects = input.subjects
