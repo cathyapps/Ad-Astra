@@ -55,7 +55,7 @@ export type ChartResult =
   | { kind: 'points'; points: ChartPoint[] }
   | { kind: 'scatter'; categories: { label: string; date?: string }[]; dots: ScatterDot[] }
   | { kind: 'heatmap'; cols: string[]; rows: string[]; cells: HeatCell[] }
-  | { kind: 'number'; value: number; value2?: number; records: ChartRecord[] }
+  | { kind: 'number'; value: number | undefined; value2?: number; records: ChartRecord[] }
 
 // ---------------------------------------------------------------------
 // Timeframe + date helpers (Eastern time, 3 AM day rollover — appDate.ts)
@@ -243,7 +243,9 @@ function daysToFinish(b: Book): number | undefined {
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined)
 const round = (v: number, dp: number) => Math.round(v * 10 ** dp) / 10 ** dp
 
-function aggregateLogs(metric: MetricKey, logs: DerivedLog[]): number {
+/** Undefined = no data (e.g. reading speed when none of the logs have a time), so it is left out
+ *  of charts instead of showing up as 0. */
+function aggregateLogs(metric: MetricKey, logs: DerivedLog[]): number | undefined {
   switch (metric) {
     case 'pages_read':
       return logs.reduce((sum, d) => sum + (d.pagesRead ?? 0), 0)
@@ -252,8 +254,10 @@ function aggregateLogs(metric: MetricKey, logs: DerivedLog[]): number {
     case 'hours_read':
       return round(logs.reduce((sum, d) => sum + (d.log.minutesSpentReading ?? 0), 0) / 60, 2)
     case 'reading_speed': {
+      // Logs with no time entered have no speed and are not counted at all.
       const speeds = logs.flatMap((d) => (d.speedPagesPerHour != null ? [d.speedPagesPerHour] : []))
-      return Math.round(mean(speeds) ?? 0)
+      const m = mean(speeds)
+      return m == null ? undefined : Math.round(m)
     }
     default:
       return 0
@@ -337,7 +341,9 @@ function logDetail(metric: MetricKey, d: DerivedLog): string {
 }
 
 const logRecords = (metric: MetricKey, logs: DerivedLog[]): ChartRecord[] =>
-  logs.map((d) => ({ key: d.log.id, book: d.book, date: dayKey(d.log.date), detail: logDetail(metric, d) }))
+  logs
+    .filter((d) => metric !== 'reading_speed' || d.speedPagesPerHour != null)
+    .map((d) => ({ key: d.log.id, book: d.book, date: dayKey(d.log.date), detail: logDetail(metric, d) }))
 
 const bookRecords = (metric: MetricKey, books: Book[]): ChartRecord[] =>
   books.map((b) => ({
@@ -351,10 +357,11 @@ const bookRecords = (metric: MetricKey, books: Book[]): ChartRecord[] =>
 function perBookLogRecords(metric: MetricKey, logs: DerivedLog[]): ChartRecord[] {
   const byBook = new Map<string, DerivedLog[]>()
   for (const d of logs) byBook.set(d.book.id, [...(byBook.get(d.book.id) ?? []), d])
-  return Array.from(byBook.values()).map((ls) => {
+  return Array.from(byBook.values()).flatMap((ls) => {
     const v = aggregateLogs(metric, ls)
+    if (v == null) return [] // e.g. a book whose logs have no times has no reading speed
     const unit = METRIC_UNITS[metric]
-    return { key: ls[0].book.id, book: ls[0].book, detail: `${fmtNum(v)}${unit ? ` ${unit}` : ''}` }
+    return [{ key: ls[0].book.id, book: ls[0].book, detail: `${fmtNum(v)}${unit ? ` ${unit}` : ''}` }]
   })
 }
 
@@ -634,7 +641,7 @@ function computeHeatmap(config: ChartConfig, d: Data): ChartResult {
 function computeNumber(config: ChartConfig, d: Data): ChartResult {
   const one = (metric: MetricKey) => {
     const books = FINISHED_METRICS.has(metric) ? d.finishedInRange : d.activeBooks
-    const value = metricValue(metric, d.derivedInRange, books, d.ctx) ?? 0
+    const value = metricValue(metric, d.derivedInRange, books, d.ctx) ?? (COUNT_METRICS.has(metric) ? 0 : undefined)
     const records = LOG_METRICS.has(metric) ? perBookLogRecords(metric, d.derivedInRange) : bookRecords(metric, books)
     return { value, records }
   }
@@ -722,6 +729,6 @@ export function drillRows(config: ChartConfig, result: ChartResult): DrillRow[] 
     case 'heatmap':
       return result.cells.map((c) => cellToRow(config, result, c))
     case 'number':
-      return [{ id: 'all', label: 'All data', value: formatMetric(config.yAxis, result.value), records: result.records }]
+      return [{ id: 'all', label: 'All data', value: result.value == null ? '—' : formatMetric(config.yAxis, result.value), records: result.records }]
   }
 }

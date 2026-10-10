@@ -61,7 +61,7 @@ export function ChartRenderer({ config, result, onSelectRow }: Props) {
         className="w-full text-center py-3 rounded-lg hover:bg-card-hover transition-colors"
         onClick={() => onSelectRow({ id: 'all', label: 'All data', value: '', records: result.records })}
       >
-        <div className="font-display text-4xl text-gold leading-tight">{formatMetric(config.yAxis, result.value)}</div>
+        <div className="font-display text-4xl text-gold leading-tight">{result.value == null ? '—' : formatMetric(config.yAxis, result.value)}</div>
         <div className="text-xs text-moon-dim mt-1">{METRIC_LABELS[config.yAxis]}</div>
         {config.yAxis2 && result.value2 != null && (
           <>

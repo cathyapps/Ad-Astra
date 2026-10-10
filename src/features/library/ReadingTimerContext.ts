@@ -4,6 +4,15 @@ export interface RunningTimer {
   bookId: string
   /** Epoch ms when the timer was started. */
   startedAt: number
+  /** Total ms spent paused in earlier pauses (not counted as reading time). */
+  pausedMs: number
+  /** Epoch ms when the current pause began; undefined while the timer is running. */
+  pausedAt?: number
+}
+
+/** Reading time so far, in ms: the clock stands still while paused. */
+export function elapsedMs(timer: RunningTimer, now: number): number {
+  return Math.max(0, (timer.pausedAt ?? now) - timer.startedAt - timer.pausedMs)
 }
 
 export interface StoppedSession {
@@ -17,6 +26,9 @@ export interface ReadingTimerApi {
   /** Set when Stop Reading was tapped; the quick log opens for this. */
   stoppedSession: StoppedSession | null
   start: (bookId: string) => void
+  /** Stops the clock without ending the session; resume() carries on from the same time. */
+  pause: () => void
+  resume: () => void
   stop: () => void
   clearStoppedSession: () => void
 }

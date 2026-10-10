@@ -46,7 +46,9 @@ export function ProgressLogSheet({ book, onCreateLog, onUpdateBook, onClose, ini
           }}
         >
           {timerRunningHere
-            ? '⏱ Timer running for this book'
+            ? timer?.pausedAt != null
+              ? '⏱ Timer paused for this book'
+              : '⏱ Timer running for this book'
             : timer
               ? '⏱ A reading timer is already running'
               : '⏱ Start reading'}
