@@ -1,5 +1,6 @@
 import type { Book, ReadingLog } from '@/types/library'
 import { appDayKey, appToday } from './appDate'
+import { currentReadingNumber, expandReadings, readingKey } from './readings'
 
 // All dates here are handled as "YYYY-MM-DD" keys (never through the
 // local-timezone Date parser), so a log dated the 5th always lands on the
@@ -45,26 +46,32 @@ export function logsByDay(logs: ReadingLog[]): Map<string, ReadingLog[]> {
 }
 
 export interface BookSpan {
+  /** The real book, or for an earlier reading of a re-read book, a stand-in (see lib/readings.ts). */
   book: Book
   start: string
   end: string
   /** Still being read (no finish date) — the bar runs to today. */
   ongoing: boolean
+  /** Stretches inside the span when the book was set aside (day keys, inclusive of the pause day). */
+  pauses: { from: string; to: string }[]
 }
 
-/** Start-to-finish span for each book that has any dates. Start is the
- *  book's start date, else its first reading log, else its finish date;
- *  end is its finish date, or today if it's still being read. */
+/** Start-to-finish span for each READING of each book that has any dates (a re-read gets its
+ *  own span). Start is the reading's start date, else its first reading log, else its finish
+ *  date; end is its finish date, or today if it's still being read. Pauses are carried along
+ *  so the timeline can show the breaks. */
 export function getBookSpans(books: Book[], logs: ReadingLog[]): BookSpan[] {
+  const currentNumber = new Map(books.map((b) => [b.id, currentReadingNumber(b)]))
   const firstLog = new Map<string, string>()
   for (const l of logs) {
     const k = dayKey(l.date)
-    const cur = firstLog.get(l.bookId)
-    if (!cur || k < cur) firstLog.set(l.bookId, k)
+    const key = readingKey(l.bookId, l.readingNumber, currentNumber.get(l.bookId) ?? 1)
+    const cur = firstLog.get(key)
+    if (!cur || k < cur) firstLog.set(key, k)
   }
   const today = todayKey()
   const spans: BookSpan[] = []
-  for (const book of books) {
+  for (const book of expandReadings(books)) {
     if (book.readStatus === 'want_to_read') continue
     const finished = book.completedAt ? dayKey(book.completedAt) : undefined
     const start = (book.startedAt ? dayKey(book.startedAt) : undefined) ?? firstLog.get(book.id) ?? finished
@@ -74,7 +81,11 @@ export function getBookSpans(books: Book[], logs: ReadingLog[]): BookSpan[] {
     let end = finished ?? (ongoing ? today : start)
     let from = start
     if (end < from) [from, end] = [end, from]
-    spans.push({ book, start: from, end, ongoing })
+    const pauses = (book.pauses ?? [])
+      .map((p) => ({ from: p.from < from ? from : p.from, to: (p.to ?? end) > end ? end : (p.to ?? end) }))
+      .filter((p) => p.to > p.from)
+      .sort((a, b) => a.from.localeCompare(b.from))
+    spans.push({ book, start: from, end, ongoing, pauses })
   }
   return spans.sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end))
 }

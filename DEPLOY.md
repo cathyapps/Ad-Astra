@@ -107,3 +107,11 @@ needed beyond `HARDCOVER_API_TOKEN` and `HARDCOVER_ALLOWED_EMAIL`.
 
 Use profile icon → "Hardcover sync" to see what is waiting or failed, run a
 sync, queue every non-TBR book, and save cover thumbnails.
+
+## Re-reads, pause history, reviews (migration 0015)
+
+Run `supabase/migrations/0015_rereads_pauses_reviews.sql` (already applied to
+the live project when this was delivered). It adds `books.readings` (earlier
+readings of a re-read book), `books.pauses` (pause periods of the current
+reading), `books.review`, and `reading_logs.reading_number`. Books that were
+paused when it ran got an open pause starting after their last log.

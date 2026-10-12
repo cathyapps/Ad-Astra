@@ -1,4 +1,5 @@
 import { appDayKey, appToday } from '@/lib/appDate'
+import { expandReadings } from '@/lib/readings'
 import { useState } from 'react'
 import type { Book } from '@/types/library'
 import { BottomSheet } from '@/features/shared/BottomSheet'
@@ -66,7 +67,8 @@ export function ReadingGoalCard({ books, goals, onChangeGoals }: Props) {
   const endOfYear = Date.parse(`${year + 1}-01-01T00:00:00Z`)
   const fractionOfYear = (Date.parse(`${today}T12:00:00Z`) - startOfYear) / (endOfYear - startOfYear)
 
-  const finished = books.filter(
+  // Each finished reading counts, so a book finished earlier this year still counts while it is being re-read.
+  const finished = expandReadings(books).filter(
     (b) => b.readStatus === 'read' && b.completedAt && Number(appDayKey(b.completedAt).slice(0, 4)) === year,
   )
   const booksDone = finished.length

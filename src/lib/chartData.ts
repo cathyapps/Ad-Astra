@@ -2,6 +2,7 @@ import type { Book, ReadingLog } from '@/types/library'
 import type { ChartConfig, MetricKey, MetricsTimeframe } from '@/types/charts'
 import { CATEGORY_X_AXES, METRIC_UNITS, TIME_X_AXES } from '@/types/charts'
 import { deriveLogs, type DerivedLog } from './readingStats'
+import { expandReadings } from './readings'
 import { averageMood, bookMoodScore, moodsOf } from './moods'
 import { isNonFiction } from './categorySpines'
 import { addDays, addYears, appDayKey, appToday, weekdayOf } from './appDate'
@@ -385,9 +386,13 @@ interface Data {
   activeBooks: Book[]
 }
 
-function prepare(books: Book[], logs: ReadingLog[], timeframe: MetricsTimeframe): Data {
+function prepare(realBooks: Book[], logs: ReadingLog[], timeframe: MetricsTimeframe): Data {
   const { start, end } = timeframeRange(timeframe)
-  const derivedInRange = deriveLogs(books, logs).filter((d) => inRange(d.log.date, start, end))
+  // Each reading of a book is its own entry (a re-read is a separate data point, with its own
+  // format, dates, ratings and logs), so charts work from per-reading books.
+  const books = expandReadings(realBooks)
+  const derivedLogs = deriveLogs(books, logs)
+  const derivedInRange = derivedLogs.filter((d) => inRange(d.log.date, start, end))
   const finishedInRange = books.filter(
     (b) => b.readStatus === 'read' && b.completedAt && inRange(b.completedAt, start, end),
   )

@@ -290,6 +290,9 @@ export function bookFromRow(row: Record<string, unknown>): Book {
     subjects: (row.subjects as string[]) ?? undefined,
     openLibraryWorkKey: (row.open_library_work_key as string) ?? undefined,
     externalMetadata: (row.external_metadata as Record<string, unknown>) ?? undefined,
+    review: (row.review as string) ?? undefined,
+    readings: Array.isArray(row.readings) ? (row.readings as Book['readings']) : [],
+    pauses: Array.isArray(row.pauses) ? (row.pauses as Book['pauses']) : [],
     hardcoverBookId: (row.hardcover_book_id as number) ?? undefined,
     hardcoverEditionId: (row.hardcover_edition_id as number) ?? undefined,
     hardcoverUserBookId: (row.hardcover_user_book_id as number) ?? undefined,
@@ -320,6 +323,9 @@ export function bookToRow(input: Partial<Book>, userId: string): Record<string, 
   if ('ratingCharacters' in input) row.rating_characters = input.ratingCharacters ?? null
   if ('ratingWriting' in input) row.rating_writing = input.ratingWriting ?? null
   if (input.notes !== undefined) row.notes = input.notes
+  if ('review' in input) row.review = input.review ?? null
+  if (input.readings !== undefined) row.readings = input.readings
+  if (input.pauses !== undefined) row.pauses = input.pauses
   if (input.tags !== undefined) row.tags = input.tags
   if (input.isNextUp !== undefined) row.is_next_up = input.isNextUp
   if (input.isbn !== undefined) row.isbn = input.isbn
@@ -336,7 +342,8 @@ export function bookToRow(input: Partial<Book>, userId: string): Record<string, 
   if (input.hardcoverReviewedAt !== undefined) row.hardcover_reviewed_at = input.hardcoverReviewedAt
   if (input.relatedStarIds !== undefined) row.related_star_ids = input.relatedStarIds
   if (input.startedAt !== undefined) row.started_at = input.startedAt
-  if (input.completedAt !== undefined) row.completed_at = input.completedAt
+  // Present-but-undefined means "cleared" (a re-read starts with no finish date).
+  if ('completedAt' in input) row.completed_at = input.completedAt ?? null
   return row
 }
 
@@ -350,6 +357,7 @@ export function readingLogFromRow(row: Record<string, unknown>): ReadingLog {
     percentComplete: (row.percent_complete as number) ?? undefined,
     minutesSpentReading: (row.minutes_spent_reading as number) ?? undefined,
     notes: (row.notes as string) ?? undefined,
+    readingNumber: (row.reading_number as number) ?? undefined,
     createdAt: row.created_at as string,
   }
 }
@@ -363,6 +371,7 @@ export function readingLogToRow(input: Partial<ReadingLog>, userId: string): Rec
   if (input.percentComplete !== undefined) row.percent_complete = input.percentComplete
   if (input.minutesSpentReading !== undefined) row.minutes_spent_reading = input.minutesSpentReading
   if (input.notes !== undefined) row.notes = input.notes
+  if (input.readingNumber !== undefined) row.reading_number = input.readingNumber
   return row
 }
 

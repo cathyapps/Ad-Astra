@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '@/lib/db'
 import { checkCapacity, resolveCapacityChoice, type CapacityChoice } from '@/lib/currentOrbit'
 import { planTransition } from '@/lib/starLifecycle'
+import { appToday } from '@/lib/appDate'
+import { currentReadingNumber, pausesAfterStatusChange, rereadPatch, type RereadOptions } from '@/lib/readings'
 import type { AppSettings, Constellation, Star, StarStage, Task } from '@/types'
 import type { Book, ReadingLog } from '@/types/library'
 import type { BucketListItem } from '@/types/bucketList'
@@ -34,6 +36,11 @@ export function useAdAstra() {
   // --- Library ---
   const [books, setBooks] = useState<Book[]>([])
   const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([])
+  // Latest books for callbacks that need a book's current state (status change, re-read).
+  const booksRef = useRef<Book[]>([])
+  booksRef.current = books
+  // Set when a book has just been marked finished, so the app can ask for a review.
+  const [finishPromptBookId, setFinishPromptBookId] = useState<string | null>(null)
 
   // --- Bucket List ---
   const [bucketListItems, setBucketListItems] = useState<BucketListItem[]>([])
@@ -298,13 +305,35 @@ export function useAdAstra() {
     [reload],
   )
 
+  // Every status change goes through here, so pause history and the finish-a-book review
+  // prompt work no matter which screen made the change.
   const updateBook = useCallback(
     async (id: string, patch: Partial<Book>) => {
-      await db.updateBook(id, patch)
+      const book = booksRef.current.find((b) => b.id === id)
+      let finalPatch = patch
+      if (book && patch.readStatus && patch.readStatus !== book.readStatus && patch.pauses === undefined) {
+        const pauses = pausesAfterStatusChange(book, patch.readStatus, appToday())
+        if (pauses) finalPatch = { ...patch, pauses }
+      }
+      await db.updateBook(id, finalPatch)
+      if (book && patch.readStatus === 'read' && book.readStatus !== 'read') setFinishPromptBookId(id)
       await reload()
     },
     [reload],
   )
+
+  // Archives the finished reading and starts the book over as a new reading.
+  const startReread = useCallback(
+    async (id: string, opts: RereadOptions) => {
+      const book = booksRef.current.find((b) => b.id === id)
+      if (!book) return
+      await db.updateBook(id, rereadPatch(book, opts, new Date().toISOString()))
+      await reload()
+    },
+    [reload],
+  )
+
+  const dismissFinishPrompt = useCallback(() => setFinishPromptBookId(null), [])
 
   // Applies many book patches with a single reload at the end (calling
   // updateBook in a loop would reload the whole app once per book).
@@ -335,7 +364,9 @@ export function useAdAstra() {
 
   const createReadingLog = useCallback(
     async (input: Partial<ReadingLog> & { bookId: string }) => {
-      const l = await db.createReadingLog(input)
+      // Logs belong to a reading (1 = first), so a re-read's progress is kept apart from the first read's.
+      const book = booksRef.current.find((b) => b.id === input.bookId)
+      const l = await db.createReadingLog({ readingNumber: book ? currentReadingNumber(book) : undefined, ...input })
       await reload()
       return l
     },
@@ -458,6 +489,9 @@ export function useAdAstra() {
     createBook,
     updateBook,
     updateBooksBulk,
+    startReread,
+    finishPromptBookId,
+    dismissFinishPrompt,
     deleteBook,
     createReadingLog,
     updateReadingLog,

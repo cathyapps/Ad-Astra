@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Book, ReadingLog } from '@/types/library'
-import { deriveLogs } from '@/lib/readingStats'
+import { deriveLogs, sortLogsForDisplay } from '@/lib/readingStats'
+import { expandReadings, readingLabel, realBookId } from '@/lib/readings'
 import { buildMonthGrid, dayKey, getBookSpans, keyToUtcMs, logsByDay, todayKey } from '@/lib/readingCalendar'
 import type { BookSpan } from '@/lib/readingCalendar'
 import { DetailModal } from '@/features/shared/DetailModal'
@@ -18,6 +19,8 @@ interface Props {
 type Selection = { type: 'day'; key: string } | { type: 'book'; id: string }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+/** Opacity of the lightest "read" day (a day with logs but no measurable pages). */
+const SHADE_MIN = 0.3
 const MONTH_LETTERS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
 const monthTitle = (year: number, month: number) =>
@@ -67,7 +70,7 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
   const eventDays = useMemo(() => {
     const started = new Map<string, Book[]>()
     const finished = new Map<string, Book[]>()
-    for (const b of books) {
+    for (const b of expandReadings(books)) {
       if (b.startedAt) started.set(dayKey(b.startedAt), [...(started.get(dayKey(b.startedAt)) ?? []), b])
       if (b.completedAt && b.readStatus === 'read') {
         finished.set(dayKey(b.completedAt), [...(finished.get(dayKey(b.completedAt)) ?? []), b])
@@ -75,6 +78,27 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
     }
     return { started, finished }
   }, [books])
+
+  // Pages read per day, and the shade for each day: the darkest shade is a big reading day
+  // (the 90th percentile of your reading days, so one huge day doesn't wash out the rest).
+  const pagesByDay = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const d of derived) {
+      const k = dayKey(d.log.date)
+      m.set(k, (m.get(k) ?? 0) + (d.pagesRead ?? 0))
+    }
+    return m
+  }, [derived])
+  const fullShadePages = useMemo(() => {
+    const v = Array.from(pagesByDay.values())
+      .filter((x) => x > 0)
+      .sort((a, b) => a - b)
+    return v.length ? v[Math.floor((v.length - 1) * 0.9)] : 1
+  }, [pagesByDay])
+  const shadeFor = (key: string): number => {
+    const pages = pagesByDay.get(key) ?? 0
+    return pages <= 0 ? SHADE_MIN : SHADE_MIN + (1 - SHADE_MIN) * Math.min(1, Math.sqrt(pages / fullShadePages))
+  }
 
   const grid = useMemo(() => buildMonthGrid(view.year, view.month), [view])
   const daysReadThisMonth = useMemo(() => {
@@ -94,7 +118,19 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
   const yearMs = Date.UTC(timelineYear + 1, 0, 1) - yearStartMs
   const yearSpans = spans.filter((s) => s.start <= `${timelineYear}-12-31` && s.end >= `${timelineYear}-01-01`)
 
-  function barStyle(s: BookSpan) {
+  /** The stretches of a span when the book was actually being read (the rest is a pause). */
+  function segmentsOf(s: BookSpan): { start: string; end: string }[] {
+    const out: { start: string; end: string }[] = []
+    let cursor = s.start
+    for (const p of s.pauses) {
+      if (p.from > cursor) out.push({ start: cursor, end: p.from })
+      cursor = p.to
+    }
+    if (cursor <= s.end) out.push({ start: cursor, end: s.end })
+    return out
+  }
+
+  function barStyle(s: { start: string; end: string }) {
     const from = Math.max(keyToUtcMs(s.start), yearStartMs)
     const to = Math.min(keyToUtcMs(s.end) + 86400000, yearStartMs + yearMs)
     const left = ((from - yearStartMs) / yearMs) * 100
@@ -112,7 +148,7 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
     for (const l of logs) byBook.set(l.bookId, [...(byBook.get(l.bookId) ?? []), l])
     const startedToday = eventDays.started.get(key) ?? []
     const finishedToday = eventDays.finished.get(key) ?? []
-    const bookIds = new Set([...byBook.keys(), ...startedToday.map((b) => b.id), ...finishedToday.map((b) => b.id)])
+    const bookIds = new Set([...byBook.keys(), ...startedToday.map(realBookId), ...finishedToday.map(realBookId)])
 
     return (
       <div className="border border-hairline rounded-xl p-4 space-y-4 bg-card">
@@ -132,15 +168,15 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
           {Array.from(bookIds).map((id) => {
             const book = bookById.get(id)
             if (!book) return null
-            const entries = byBook.get(id) ?? []
+            const entries = sortLogsForDisplay(byBook.get(id) ?? [], book)
             const pages = entries.reduce((sum, l) => sum + (derivedByLogId.get(l.id)?.pagesRead ?? 0), 0)
             const minutes = entries.reduce((sum, l) => sum + (l.minutesSpentReading ?? 0), 0)
             const last = entries[entries.length - 1]
             const marker =
               last?.currentPage != null ? `p. ${last.currentPage}` : last?.percentComplete != null ? `${last.percentComplete}%` : null
             const tags = [
-              startedToday.some((b) => b.id === id) ? 'Started' : null,
-              finishedToday.some((b) => b.id === id) ? 'Finished' : null,
+              startedToday.some((b) => realBookId(b) === id) ? 'Started' : null,
+              finishedToday.some((b) => realBookId(b) === id) ? 'Finished' : null,
             ].filter(Boolean)
 
             return (
@@ -210,8 +246,9 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
             const event = !read && (eventDays.started.has(cell.key) || eventDays.finished.has(cell.key))
             const isToday = cell.key === today
             const base = 'aspect-square rounded-full text-xs flex items-center justify-center transition-colors'
+            const shade = read ? shadeFor(cell.key) : 0
             const tone = read
-              ? 'bg-gold text-night font-medium'
+              ? `relative font-medium ${shade > 0.7 ? 'text-night' : 'text-moon'}`
               : event
                 ? 'border border-gold/60 text-moon'
                 : cell.inMonth
@@ -223,11 +260,12 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
                 <button
                   key={cell.key}
                   type="button"
-                  aria-label={prettyDay(cell.key)}
+                  aria-label={`${prettyDay(cell.key)}${read ? `, ${pagesByDay.get(cell.key) ?? 0} pages` : ''}`}
                   className={`${base} ${tone}${ring} ${cell.inMonth ? '' : 'opacity-50'}`}
                   onClick={() => setSelection({ type: 'day', key: cell.key })}
                 >
-                  {cell.day}
+                  {read && <span className="absolute inset-0 rounded-full bg-gold" style={{ opacity: shade }} />}
+                  <span className="relative">{cell.day}</span>
                 </button>
               )
             }
@@ -244,7 +282,11 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
           </span>
           <span className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-gold" /> read
+              fewer
+              {[0.3, 0.5, 0.75, 1].map((o) => (
+                <span key={o} className="w-2.5 h-2.5 rounded-full bg-gold" style={{ opacity: o }} />
+              ))}
+              more pages
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full border border-gold/60" /> start/finish
@@ -266,6 +308,7 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
           ))}
         </div>
 
+        <p className="text-[10px] text-moon-dim -mt-1">A gap with a dashed line means the book was paused.</p>
         {yearSpans.length === 0 ? (
           <p className="text-sm text-moon-dim">No books with dates in {timelineYear}.</p>
         ) : (
@@ -275,16 +318,30 @@ export function ReadingCalendar({ books, readingLogs, onUpdateBook, onDeleteBook
                 key={s.book.id}
                 type="button"
                 className="w-full flex items-center gap-2 text-left"
-                onClick={() => setSelection({ type: 'book', id: s.book.id })}
+                onClick={() => setSelection({ type: 'book', id: realBookId(s.book) })}
               >
                 <BookCover title={s.book.title} coverUrl={s.book.coverUrl} seed={s.book.id} size="xs" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-display text-xs text-moon truncate">{s.book.title}</div>
+                  <div className="font-display text-xs text-moon truncate">
+                    {s.book.title}
+                    {readingLabel(s.book) && <span className="text-moon-dim"> · {readingLabel(s.book)}</span>}
+                  </div>
                   <div className="relative h-2.5 mt-1 rounded-full bg-hairline-soft overflow-hidden">
-                    <div
-                      className={`absolute top-0 bottom-0 rounded-full ${s.ongoing ? 'bg-gold/70' : 'bg-gold'}`}
-                      style={barStyle(s)}
-                    />
+                    {/* Dashed line over each pause, with the track showing through as a break in the bar. */}
+                    {s.pauses.map((p) => (
+                      <div
+                        key={`${p.from}-${p.to}`}
+                        className="absolute top-1/2 border-t border-dashed border-moon-dim/50"
+                        style={barStyle({ start: p.from, end: p.to })}
+                      />
+                    ))}
+                    {segmentsOf(s).map((seg) => (
+                      <div
+                        key={`${seg.start}-${seg.end}`}
+                        className={`absolute top-0 bottom-0 rounded-full ${s.ongoing ? 'bg-gold/70' : 'bg-gold'}`}
+                        style={barStyle(seg)}
+                      />
+                    ))}
                   </div>
                   <div className="text-[10px] text-moon-dim mt-0.5">
                     {prettyShort(s.start)}

@@ -302,6 +302,7 @@ interface SyncInput {
   status?: string
   rating?: number
   notes?: string
+  review?: string
   startedAt?: string
   completedAt?: string
   progressPages?: number
@@ -333,6 +334,11 @@ query MyUserBook($bookId: Int!) {
 const MY_NOTES_QUERY = `
 query MyNotes($id: Int!) {
   me { user_books(where: { id: { _eq: $id } }, limit: 1) { private_notes } }
+}`
+
+const MY_REVIEW_QUERY = `
+query MyReview($id: Int!) {
+  me { user_books(where: { id: { _eq: $id } }, limit: 1) { review_raw } }
 }`
 
 const INSERT_USER_BOOK = `
@@ -442,6 +448,20 @@ async function syncBookOp(raw: unknown) {
     }
   }
 
+  // 5b. Written review (separate again: its field name is the least certain, and a problem
+  // here must not undo anything else). Skipped when identical or empty.
+  if (typeof input.review === 'string' && input.review.trim()) {
+    try {
+      const current = meUserBooks(await hardcover(MY_REVIEW_QUERY, { id: userBookId }))[0]?.review_raw
+      if (current !== input.review) {
+        mutationResult(await hardcover(UPDATE_USER_BOOK, { id: userBookId, object: { review_raw: input.review } }), 'update_user_book')
+        did.push('review')
+      }
+    } catch (err) {
+      warnings.push(`review: ${err instanceof Error ? err.message : 'failed'}`)
+    }
+  }
+
   // 6. Reading dates and progress on your current read-through (not for "want to read").
   if (statusId !== 1) {
     try {
@@ -455,13 +475,17 @@ async function syncBookOp(raw: unknown) {
         finished_at?: string | null
         progress_pages?: number | null
       }[]
-      const latest = read[0]
+      const previous = read[0]
+      // A re-read starts after the last read finished, so it gets its own read-through
+      // instead of overwriting the dates of the one before it.
+      const isReread = !!previous?.finished_at && !!startedAt && startedAt > previous.finished_at.slice(0, 10)
+      const latest = isReread ? undefined : previous
       const want: Record<string, unknown> = {}
       if (startedAt && latest?.started_at?.slice(0, 10) !== startedAt) want.started_at = startedAt
       if (finishedAt && latest?.finished_at?.slice(0, 10) !== finishedAt) want.finished_at = finishedAt
       if (pages && latest?.progress_pages !== pages) want.progress_pages = pages
       if (seconds && editionId) want.progress_seconds = seconds
-      if (editionId && (want.progress_seconds || want.progress_pages)) want.edition_id = editionId
+      if (editionId && (want.progress_seconds || want.progress_pages || isReread)) want.edition_id = editionId
       if (!latest?.id) {
         if (startedAt || finishedAt || pages || seconds) {
           mutationResult(await hardcover(INSERT_READ, { id: userBookId, object: want }), 'insert_user_book_read')

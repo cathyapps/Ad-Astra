@@ -80,7 +80,10 @@ export function LibraryShelf({
   const matchesFilters = (book: Book): boolean => {
     const readOk =
       readFilter === 'all' ||
-      (readFilter === 'unread' ? book.readStatus === 'want_to_read' : book.readStatus === 'read')
+      (readFilter === 'unread'
+        ? book.readStatus === 'want_to_read'
+        : // a book being re-read still counts as read
+          book.readStatus === 'read' || (book.readings?.length ?? 0) > 0)
     const ownedOk =
       ownedFilter === 'all' ||
       (ownedFilter === 'owned' ? book.ownership === 'own' : book.ownership !== 'own')

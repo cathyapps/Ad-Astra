@@ -390,6 +390,9 @@ export class LocalStore implements AdAstraStore {
       ratingCharacters: input.ratingCharacters,
       ratingWriting: input.ratingWriting,
       notes: input.notes,
+      review: input.review,
+      readings: input.readings ?? [],
+      pauses: input.pauses ?? [],
       tags: input.tags ?? [],
       isNextUp: input.isNextUp ?? false,
       isbn: input.isbn,
@@ -443,6 +446,7 @@ export class LocalStore implements AdAstraStore {
       percentComplete: input.percentComplete,
       minutesSpentReading: input.minutesSpentReading,
       notes: input.notes,
+      readingNumber: input.readingNumber,
       createdAt: now(),
     }
     write(KEYS.readingLogs, [...logs, log])

@@ -98,7 +98,7 @@ export function ChartDataSheet({
                   key={`${r.key}-${r.date ?? ''}-${i}`}
                   type="button"
                   className="w-full flex items-center gap-3 text-left rounded-lg hover:bg-card-hover transition-colors -mx-1 px-1 py-1"
-                  onClick={() => setBookId(r.book.id)}
+                  onClick={() => setBookId(r.book.sourceBookId ?? r.book.id)}
                 >
                   <BookCover title={r.book.title} coverUrl={r.book.coverUrl} seed={r.book.id} size="sm" />
                   <div className="min-w-0 flex-1">

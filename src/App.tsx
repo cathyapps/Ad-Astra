@@ -10,6 +10,8 @@ import { ReadingTimerProvider } from '@/features/library/ReadingTimerProvider'
 import { StoppedSessionSheet } from '@/features/library/StoppedSessionSheet'
 import { HardcoverReview } from '@/features/library/HardcoverReview'
 import { HardcoverSync } from '@/features/library/HardcoverSync'
+import { FinishReviewSheet } from '@/features/library/FinishReviewSheet'
+import { RereadContext } from '@/features/library/RereadContext'
 import { useHardcoverSync } from '@/hooks/useHardcoverSync'
 
 type Tab = 'dashboard' | 'universe' | 'bucketlist' | 'library'
@@ -40,6 +42,7 @@ export default function App() {
 
   return (
     <ReadingTimerProvider>
+    <RereadContext.Provider value={adAstra.startReread}>
     <div className="max-w-md mx-auto min-h-screen flex flex-col">
       <header className="px-4 pt-5 pb-3 border-b border-hairline">
         <div className="flex items-center justify-between mb-3">
@@ -207,6 +210,20 @@ export default function App() {
         onUpdateBook={adAstra.updateBook}
       />
 
+      {/* Opens right after a book is marked finished, wherever that happened. */}
+      {adAstra.finishPromptBookId &&
+        (() => {
+          const finished = adAstra.books.find((b) => b.id === adAstra.finishPromptBookId)
+          return finished ? (
+            <FinishReviewSheet
+              justFinished
+              book={finished}
+              onSave={(patch) => void adAstra.updateBook(finished.id, patch)}
+              onClose={adAstra.dismissFinishPrompt}
+            />
+          ) : null
+        })()}
+
       {hardcoverOpen && (
         <HardcoverReview
           books={adAstra.books}
@@ -229,6 +246,7 @@ export default function App() {
         />
       )}
     </div>
+    </RereadContext.Provider>
     </ReadingTimerProvider>
   )
 }

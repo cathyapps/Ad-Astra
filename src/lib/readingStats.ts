@@ -1,5 +1,6 @@
 import { addDays, appDayKey, appToday, weekdayOf } from './appDate'
 import type { Book, ReadingLog } from '@/types/library'
+import { currentReadingNumber, readingKey } from './readings'
 
 // --- Core conversion: turn whatever progress marker was logged (current
 // page, audiobook position, or percent) into a common "pages" unit, using
@@ -28,15 +29,21 @@ export interface DerivedLog {
  *  below are built from — nothing here is typed in by the user. */
 export function deriveLogs(books: Book[], logs: ReadingLog[]): DerivedLog[] {
   const bookById = new Map(books.map((b) => [b.id, b]))
-  const byBook = new Map<string, ReadingLog[]>()
+  // Logs are grouped per READING (a re-read starts again from page 1), so the first
+  // session of a re-read isn't measured against the end of the previous reading.
+  const byReading = new Map<string, { book: Book; logs: ReadingLog[] }>()
   for (const l of logs) {
-    byBook.set(l.bookId, [...(byBook.get(l.bookId) ?? []), l])
+    const real = bookById.get(l.bookId)
+    if (!real) continue
+    const key = readingKey(l.bookId, l.readingNumber, currentReadingNumber(real))
+    const book = bookById.get(key) ?? real
+    const group = byReading.get(key) ?? { book, logs: [] }
+    group.logs.push(l)
+    byReading.set(key, group)
   }
 
   const result: DerivedLog[] = []
-  for (const [bookId, bookLogs] of byBook) {
-    const book = bookById.get(bookId)
-    if (!book) continue
+  for (const { book, logs: bookLogs } of byReading.values()) {
     const sorted = [...bookLogs].sort(
       (a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt),
     )
@@ -56,6 +63,25 @@ export function deriveLogs(books: Book[], logs: ReadingLog[]): DerivedLog[] {
     }
   }
   return result
+}
+
+/** Log order for display: newest day first; within a day, in the order the entries were read
+ *  (by how far into the book each one got, then by when it was logged). */
+export function sortLogsForDisplay(logs: ReadingLog[], book: Book): ReadingLog[] {
+  const position = (l: ReadingLog): number =>
+    l.currentPage ??
+    (l.percentComplete != null && book.totalPages ? (l.percentComplete / 100) * book.totalPages : undefined) ??
+    l.currentTimeMinutes ??
+    Number.POSITIVE_INFINITY
+  return [...logs].sort((a, b) => {
+    const dayA = appDayKey(a.date)
+    const dayB = appDayKey(b.date)
+    if (dayA !== dayB) return dayB.localeCompare(dayA)
+    const pa = position(a)
+    const pb = position(b)
+    if (pa !== pb) return pa < pb ? -1 : 1
+    return a.createdAt.localeCompare(b.createdAt)
+  })
 }
 
 /** start / end are app-day keys (YYYY-MM-DD, inclusive). */

@@ -32,6 +32,31 @@ export function lengthBucketFor(totalPages: number | undefined): LengthBucket | 
   return '400pg+'
 }
 
+/** A stretch of a reading when the book was set aside. Day keys (YYYY-MM-DD); `to` is empty while still paused. */
+export interface BookPause {
+  from: string
+  to?: string
+}
+
+/** One finished (or abandoned) reading of a book, kept when the book is read again. */
+export interface BookReading {
+  /** 1 = first reading. */
+  number: number
+  format: BookFormat
+  isbn?: string
+  hardcoverEditionId?: number
+  startedAt?: string
+  completedAt?: string
+  status: 'read' | 'dnf'
+  rating?: number
+  ratingPlot?: number
+  ratingCharacters?: number
+  ratingWriting?: number
+  review?: string
+  notes?: string
+  pauses?: BookPause[]
+}
+
 export interface Book {
   id: string
   title: string
@@ -59,8 +84,20 @@ export interface Book {
   ratingPlot?: number
   ratingCharacters?: number
   ratingWriting?: number
+  // Written review of the current/latest reading; `notes` stays the free-form notes.
+  review?: string
   notes?: string
   tags: string[]
+
+  // Earlier completed readings of this book (oldest first). The fields above always
+  // describe the CURRENT reading, so a book read twice has one entry here. The format
+  // is per reading: a book can be read on Kindle first and listened to the second time.
+  readings?: BookReading[]
+  // Pauses within the current reading.
+  pauses?: BookPause[]
+  // In-memory only (never stored): set on the per-reading copies the charts and the
+  // calendar build, pointing back at the real book.
+  sourceBookId?: string
 
   // Manual override for the Library's "Next Reads" shelf — pins this book
   // as a recommended next read instead of leaving that slot to the random
@@ -115,5 +152,7 @@ export interface ReadingLog {
   percentComplete?: number // 0-100
   minutesSpentReading?: number // session duration/effort, for speed stats
   notes?: string
+  // Which reading of the book this belongs to (1 = first). Missing means the current one.
+  readingNumber?: number
   createdAt: string
 }

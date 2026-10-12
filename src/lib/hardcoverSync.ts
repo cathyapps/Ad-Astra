@@ -39,6 +39,7 @@ export interface SyncPayload {
   /** Overall rating rounded to the nearest half star (Hardcover has no quarter stars). */
   rating?: number
   notes?: string
+  review?: string
   startedAt?: string
   completedAt?: string
   progressPages?: number
@@ -77,7 +78,9 @@ function latestProgress(book: Book, logs: ReadingLog[]): { pages?: number; secon
 }
 
 export function buildSyncPayload(book: Book, allLogs: ReadingLog[]): SyncPayload {
-  const logs = allLogs.filter((l) => l.bookId === book.id)
+  // Only the current reading's logs: progress and notes for an earlier reading are already on Hardcover.
+  const currentNumber = (book.readings?.length ?? 0) + 1
+  const logs = allLogs.filter((l) => l.bookId === book.id && (l.readingNumber ?? currentNumber) === currentNumber)
   // A finished book's progress is "all of it"; only in-flight books send a position.
   const progress = book.readStatus === 'read' || book.readStatus === 'want_to_read' ? {} : latestProgress(book, logs)
   return {
@@ -87,6 +90,7 @@ export function buildSyncPayload(book: Book, allLogs: ReadingLog[]): SyncPayload
     status: book.readStatus,
     rating: book.rating && book.rating > 0 ? Math.max(0.5, roundToHalf(book.rating)) : undefined,
     notes: composeNotes(book, logs),
+    review: book.review?.trim() || undefined,
     startedAt: book.startedAt ? appDayKey(book.startedAt) : undefined,
     completedAt: book.completedAt ? appDayKey(book.completedAt) : undefined,
     progressPages: progress.pages,
