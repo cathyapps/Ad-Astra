@@ -303,6 +303,8 @@ interface SyncInput {
   rating?: number
   notes?: string
   review?: string
+  /** Earlier finished readings of the same book (re-reads), oldest first. */
+  priorReads?: { startedAt?: string; finishedAt?: string }[]
   startedAt?: string
   completedAt?: string
   progressPages?: number
@@ -351,9 +353,9 @@ mutation UpdateUserBook($id: Int!, $object: UserBookUpdateInput!) {
   update_user_book(id: $id, object: $object) { id error }
 }`
 
-const LATEST_READ_QUERY = `
-query LatestRead($id: Int!) {
-  user_book_reads(where: { user_book_id: { _eq: $id } }, order_by: { id: desc }, limit: 1) {
+const READS_QUERY = `
+query Reads($id: Int!) {
+  user_book_reads(where: { user_book_id: { _eq: $id } }, order_by: { id: asc }, limit: 50) {
     id started_at finished_at progress_pages
   }
 }`
@@ -462,30 +464,60 @@ async function syncBookOp(raw: unknown) {
     }
   }
 
-  // 6. Reading dates and progress on your current read-through (not for "want to read").
+  // 6. Reading dates and progress. Every reading of the book is a read-through on Hardcover:
+  // earlier readings (re-reads) are matched to the existing ones by their dates, or added if
+  // missing, and never overwrite each other. Nothing is ever deleted.
   if (statusId !== 1) {
     try {
+      type HcRead = { id?: number; started_at?: string | null; finished_at?: string | null; progress_pages?: number | null }
+      const reads = ((await hardcover(READS_QUERY, { id: userBookId })).user_book_reads ?? []) as HcRead[]
+      const used = new Set<number>()
+      const d = (v?: string | null) => v?.slice(0, 10)
+      const take = (r?: HcRead) => {
+        if (r?.id) used.add(r.id)
+        return r
+      }
+      // A free read-through starting on this date, else one finishing on it.
+      const findRead = (started?: string, finished?: string) =>
+        reads.find((r) => r.id && !used.has(r.id) && !!started && d(r.started_at) === started) ??
+        reads.find((r) => r.id && !used.has(r.id) && !!finished && d(r.finished_at) === finished)
+
+      const prior = (Array.isArray(input.priorReads) ? input.priorReads : []).slice(0, 50)
+      for (const p of prior) {
+        const ps = day(p?.startedAt)
+        const pf = day(p?.finishedAt)
+        if (!ps && !pf) continue
+        const match = take(findRead(ps, pf))
+        const want: Record<string, unknown> = {}
+        if (ps && d(match?.started_at) !== ps) want.started_at = ps
+        if (pf && d(match?.finished_at) !== pf) want.finished_at = pf
+        if (match?.id) {
+          if (Object.keys(want).length > 0) {
+            mutationResult(await hardcover(UPDATE_READ, { id: match.id, object: want }), 'update_user_book_read')
+            did.push('earlier reading')
+          }
+        } else {
+          mutationResult(await hardcover(INSERT_READ, { id: userBookId, object: want }), 'insert_user_book_read')
+          did.push('earlier reading')
+        }
+      }
+
       const startedAt = day(input.startedAt)
       const finishedAt = statusId === 3 ? day(input.completedAt) : undefined
       const pages = posInt(input.progressPages)
       const seconds = posInt(input.progressSeconds)
-      const read = ((await hardcover(LATEST_READ_QUERY, { id: userBookId })).user_book_reads ?? []) as {
-        id?: number
-        started_at?: string | null
-        finished_at?: string | null
-        progress_pages?: number | null
-      }[]
-      const previous = read[0]
-      // A re-read starts after the last read finished, so it gets its own read-through
-      // instead of overwriting the dates of the one before it.
-      const isReread = !!previous?.finished_at && !!startedAt && startedAt > previous.finished_at.slice(0, 10)
-      const latest = isReread ? undefined : previous
+      // The current reading: with earlier readings known, it is the one starting on the same
+      // date (or still open); otherwise it is simply the latest read-through.
+      const latest =
+        prior.length > 0
+          ? (take(findRead(startedAt)) ?? take(reads.find((r) => r.id && !used.has(r.id) && !r.finished_at)))
+          : reads[reads.length - 1]
       const want: Record<string, unknown> = {}
-      if (startedAt && latest?.started_at?.slice(0, 10) !== startedAt) want.started_at = startedAt
-      if (finishedAt && latest?.finished_at?.slice(0, 10) !== finishedAt) want.finished_at = finishedAt
+      if (startedAt && d(latest?.started_at) !== startedAt) want.started_at = startedAt
+      if (finishedAt && d(latest?.finished_at) !== finishedAt) want.finished_at = finishedAt
       if (pages && latest?.progress_pages !== pages) want.progress_pages = pages
       if (seconds && editionId) want.progress_seconds = seconds
-      if (editionId && (want.progress_seconds || want.progress_pages || isReread)) want.edition_id = editionId
+      if (editionId && (want.progress_seconds || want.progress_pages || !latest?.id)) want.edition_id = editionId
       if (!latest?.id) {
         if (startedAt || finishedAt || pages || seconds) {
           mutationResult(await hardcover(INSERT_READ, { id: userBookId, object: want }), 'insert_user_book_read')

@@ -40,6 +40,7 @@ export interface SyncPayload {
   rating?: number
   notes?: string
   review?: string
+  priorReads?: { startedAt?: string; finishedAt?: string }[]
   startedAt?: string
   completedAt?: string
   progressPages?: number
@@ -91,6 +92,10 @@ export function buildSyncPayload(book: Book, allLogs: ReadingLog[]): SyncPayload
     rating: book.rating && book.rating > 0 ? Math.max(0.5, roundToHalf(book.rating)) : undefined,
     notes: composeNotes(book, logs),
     review: book.review?.trim() || undefined,
+    priorReads: (book.readings ?? []).map((r) => ({
+      startedAt: r.startedAt ? appDayKey(r.startedAt) : undefined,
+      finishedAt: r.completedAt ? appDayKey(r.completedAt) : undefined,
+    })),
     startedAt: book.startedAt ? appDayKey(book.startedAt) : undefined,
     completedAt: book.completedAt ? appDayKey(book.completedAt) : undefined,
     progressPages: progress.pages,
